@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "378068072949",
+    "firebase_url": "https://gt-scheduling-app.firebaseio.com",
+    "project_id": "gt-scheduling-app",
+    "storage_bucket": "gt-scheduling-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:378068072949:android:a1c71621f53daef7cc88bc",
+        "android_client_info": {
+          "package_name": "com.example.gt_scheduling_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "378068072949-acqpsuvd6uvvt0t9tf5q3hd12dlthmeo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzNxupDG2CpFrvXd1YmUG0FLS4q4VTn2c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "378068072949-acqpsuvd6uvvt0t9tf5q3hd12dlthmeo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
