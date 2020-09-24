@@ -8,6 +8,7 @@ import 'add_courses.dart';
 import 'email_verification.dart';
 import 'password_reset.dart';
 
+// TODO: Add Firebase Cloud Messaging to yaml and main.dart and integrate
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
