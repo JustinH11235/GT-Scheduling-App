@@ -1,16 +1,17 @@
-# gt_scheduling_app
+# The GT Scheduling App
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+<p>Currently:</p>
+<ul>
+  <li>
+    Allows users to track classes and get alerts when sections open.
+  </li>
+</ul>
+<p>Future Plans:</p>
+<ul>
+  <li>
+    Visualize schedules.
+  </li>
+  <li>
+    See professor ratings and grade point averages.
+  </li>
+</ul>
