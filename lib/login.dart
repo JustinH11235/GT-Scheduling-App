@@ -119,7 +119,6 @@ class _LoginPageState extends State<LoginPage> {
                                           context,
                                           MaterialPageRoute(
                                               builder: (context) => HomePage(
-                                                    title: 'Your Courses',
                                                     uid: currentUser.user.uid,
                                                   ))),
                                       print('New uid: ' + currentUser.user.uid),

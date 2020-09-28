@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'course_info.dart';
+
 class AddCoursesPage extends StatefulWidget {
-  // final courses;
-  // final selected;
-  // AddCourses({Key key, this.courses, this.selected}) : super(key: key);
+  final Set<CourseInfo> selected;
+
+  AddCoursesPage({Key key, this.selected}) : super(key: key);
 
   @override
   _AddCoursesPageState createState() => _AddCoursesPageState();
@@ -11,42 +13,34 @@ class AddCoursesPage extends StatefulWidget {
 
 class _AddCoursesPageState extends State<AddCoursesPage> {
   final _courses = [
-    'CS 101-A',
-    'CHEM 102-G',
-    'PSYC 100-R',
-    'ENGL 202-A',
-    'PHYS 244-J',
-    'GT 1000-Y',
-    'EAS 2600-A',
-    'GT 2000-C',
-    'MATH 2550-E',
+    CourseInfo(name: 'CS 101-A', crn: 101),
+    CourseInfo(name: 'CHEM 102-G', crn: 102),
+    CourseInfo(name: 'PSYC 100-R', crn: 100),
   ];
-  // TODO: pass in current selected from home..., then pass updated back
-  Set<String> _selectedCourses = Set();
 
-  Widget _buildAllCoursesRow(String word) {
-    final isSelected = _selectedCourses.contains(word);
+  Widget _buildAllCoursesRow(CourseInfo course) {
+    final isSelected = widget.selected.singleWhere(
+            (elem) => elem.name == course.name && elem.crn == course.crn,
+            orElse: () => null) !=
+        null;
     return ListTile(
       title: Text(
-        word,
+        course.name,
       ),
       trailing: Icon(
         isSelected ? Icons.favorite : Icons.favorite_border,
         color: isSelected ? Colors.red : null,
       ),
       onTap: () {
-        // setStateAddCoursesPage(() {
-        //   if (_selectedCourses.contains(word)) {
-        //     _selectedCourses.remove(word);
-        //   } else {
-        //     _selectedCourses.add(word);
-        //   }
-        // });
         setState(() {
-          if (_selectedCourses.contains(word)) {
-            _selectedCourses.remove(word);
+          if (widget.selected.singleWhere(
+                  (elem) => elem.name == course.name && elem.crn == course.crn,
+                  orElse: () => null) !=
+              null) {
+            widget.selected.removeWhere(
+                (elem) => elem.name == course.name && elem.crn == course.crn);
           } else {
-            _selectedCourses.add(word);
+            widget.selected.add(course);
           }
         });
       },
@@ -70,6 +64,11 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
     return Scaffold(
       appBar: AppBar(title: Text('Add Courses')),
       body: _getAllCoursesListView(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pop(context, widget.selected),
+        tooltip: 'Save',
+        child: Icon(Icons.save),
+      ),
     );
   }
 }

@@ -1,30 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gt_scheduling_app/add_courses.dart';
+
+import 'course_info.dart';
 
 class HomePage extends StatefulWidget {
-  final String title;
   final String uid;
 
-  HomePage({Key key, this.title, this.uid}) : super(key: key);
+  HomePage({Key key, this.uid}) : super(key: key);
 
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  Set<String> _selectedCourses = Set();
+  Set<CourseInfo> _selectedCourses = Set();
 
-  void _goToAddCourses() {
-    Navigator.pushNamed(context, "/add_courses");
+  @override
+  void initState() {
+    populateSelectedCourses();
+
+    super.initState();
+  }
+
+  Future<void> populateSelectedCourses() async {
+    DocumentSnapshot result =
+        await Firestore.instance.collection("users").document(widget.uid).get();
+    List temp = result.data['courses'];
+    setState(() => temp.forEach((elem) => {
+          _selectedCourses.add(CourseInfo(name: elem['name'], crn: elem['crn']))
+        }));
+  }
+
+  void _goToAddCourses() async {
+    final Set<CourseInfo> updatedSelected = await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (BuildContext context) =>
+                AddCoursesPage(selected: _selectedCourses)));
+    setState(() {
+      _selectedCourses = updatedSelected;
+    });
   }
 
   Widget _getSelectedCoursesListView() {
     final tiles = _selectedCourses.map(
-      (String word) {
+      (CourseInfo info) {
         return ListTile(
           title: Text(
-            word,
+            info.name,
           ),
           trailing: Icon(
             Icons.delete,
@@ -32,11 +57,7 @@ class _HomePageState extends State<HomePage> {
           ),
           onTap: () {
             setState(() {
-              if (_selectedCourses.contains(word)) {
-                _selectedCourses.remove(word);
-              } else {
-                _selectedCourses.add(word);
-              }
+              _selectedCourses.removeWhere((elem) => elem == info);
             });
           },
         );
@@ -58,7 +79,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title), //temp
+        title: Text('Your Courses'),
         actions: <Widget>[
           FlatButton(
             child: Text("Log Out"),
