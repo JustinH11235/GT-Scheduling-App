@@ -7,7 +7,15 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-admin.initializeApp();
+// Change in production
+const serviceAccount = require('C:\\Users\\micro\\Desktop\\flutter_projects\\gt-scheduling-app-firebase-adminsdk-iikqv-5cbc97b8a9.json');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+  // credential: admin.credential.applicationDefault()
+});
+
+const firestore = admin.firestore();
+const fcMessaging = admin.messaging();
 
 const app = express();
 
@@ -15,15 +23,13 @@ const app = express();
 // TODO: Replace true with cron-job origin
 
 const getSeats = async (term_in, crn_in) => {
-  const seatData = [];
+  // const seatData = [];
 
   const $ = await querySection(term_in, crn_in);
   const response = $('span:contains("Seats")');
-  response.first().parent().siblings().toArray().forEach((elem) => {
-    seatData.push(parseInt(elem.children[0].data));
-  });
+  const seatData = response.first().parent().siblings();
 
-  return seatData;
+  return {capacity: seatData[0].children[0].data, taken: seatData[1].children[0].data, open: seatData[2].children[0].data};
 };
 
 const querySection = async (term_in, crn_in) => {
@@ -32,12 +38,33 @@ const querySection = async (term_in, crn_in) => {
 };
 
 app.get('/check_openings/', async (req, res) => {
-  const tempTrackedClassList = [[202008, 88045]]
-  tempTrackedClassList.forEach(async ([term, crn]) => {
-    var seats = await getSeats(term, crn);
-    console.log(seats);
-    // TODO: Actually do something with the seat dat
-    // (i.e. integrate push notifications and use firecloud store to get auth tokens)
+  const snapshot = await firestore.collection("users").get();
+
+  snapshot.forEach(async user => {
+    user.data().courses.forEach(async ({name, term, crn}) => {
+      console.log(term, 'term|crn', crn)
+      var seats = await getSeats(term, crn);
+      console.log(seats);
+      // TODO: Actually do something with the seat data
+      // (i.e. integrate push notifications and use firecloud store to get auth tokens)
+      const payload = {
+        notification: {
+          title: 'You got a msg!',
+          body: `${name} ${seats.open > 0 ? 'OPEN' : 'CLOSED'}`,
+          click_action: 'FLUTTER_NOTIFICATION_CLICK'
+        }
+      };
+      try {
+        // Change to sendMulti-
+        const response = await fcMessaging.sendToDevice(user.data().tokens[0], payload);
+        console.log('sent push?')
+        console.log(response)
+      } catch (e) {
+        console.log(e)
+      }
+    });
+    
+    
   });
 
   res.send('Success!');
