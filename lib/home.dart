@@ -37,34 +37,34 @@ class _HomePageState extends State<HomePage> {
         .then((value) => print("This is your fcm token: " + value));
 
     fcMessaging.configure(
-        onMessage: (message) {
-          print("onmessage: $message");
-          // showDialog(
-          //   context: context,
-          //   builder: (context) => AlertDialog(
-          //     content: ListTile(
-          //       title: Text(message['notification']['title']),
-          //       subtitle: Text(message['notification']['body']),
-          //     ),
-          //     actions: <Widget>[
-          //       FlatButton(
-          //         color: Colors.amber,
-          //         child: Text('Ok'),
-          //         onPressed: () => Navigator.of(context).pop(),
-          //       ),
-          //     ],
-          //   ),
-          // );
-          return;
-        },
-        onLaunch: (message) {
-          print("onlaunch: $message");
-          return; // change back to async with type params
-        },
-        onResume: (message) {
-          print("onresume: $message");
-          return;
-        });
+      onMessage: (Map<String, dynamic> message) async {
+        print("onMessage: $message");
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+                content: ListTile(
+                  title: Text(message['notification']['title']),
+                  subtitle: Text(message['notification']['body']),
+                ),
+                actions: <Widget>[
+                  FlatButton(
+                    color: Colors.amber,
+                    child: Text('Ok'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+        );
+      },
+      onLaunch: (Map<String, dynamic> message) async {
+        print("onLaunch: $message");
+        // TODO optional
+      },
+      onResume: (Map<String, dynamic> message) async {
+        print("onResume: $message");
+        // TODO optional
+      },
+    );
 
     populateSelectedCourses();
   }

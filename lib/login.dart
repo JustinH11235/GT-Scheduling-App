@@ -113,14 +113,17 @@ class _LoginPageState extends State<LoginPage> {
                                   // .document(currentUser.user.uid)
                                   // .get()
                                   // .then((DocumentSnapshot result) =>
+                                  // if (currentUser.isEmailVerified)
                                   if (currentUser.user.isEmailVerified)
                                     {
                                       Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(
                                               builder: (context) => HomePage(
+                                                    // uid: currentUser.uid,
                                                     uid: currentUser.user.uid,
                                                   ))),
+                                      // print('New uid: ' + currentUser.uid),
                                       print('New uid: ' + currentUser.user.uid),
                                     }
                                   else

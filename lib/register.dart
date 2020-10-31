@@ -97,13 +97,16 @@ class _RegisterPageState extends State<RegisterPage> {
                                   password: pwdInputController.text)
                               .then((currentUser) => Firestore.instance
                                   .collection("users")
+                                  // .document(currentUser.uid)
                                   .document(currentUser.user.uid)
                                   .setData({
+                                    // "uid": currentUser.uid,
                                     "uid": currentUser.user.uid,
                                     "email": emailInputController.text,
                                     "courses": List()
                                   })
                                   .then((result) => {
+                                        // currentUser
                                         currentUser.user
                                             .sendEmailVerification(),
                                         // Navigator.of(context).pop(),

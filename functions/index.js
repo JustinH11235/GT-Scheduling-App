@@ -23,8 +23,6 @@ const app = express();
 // TODO: Replace true with cron-job origin
 
 const getSeats = async (term_in, crn_in) => {
-  // const seatData = [];
-
   const $ = await querySection(term_in, crn_in);
   const response = $('span:contains("Seats")');
   const seatData = response.first().parent().siblings();
