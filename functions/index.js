@@ -19,8 +19,7 @@ const fcMessaging = admin.messaging();
 
 const app = express();
 
-// app.use(cors({ origin: true }));
-// TODO: Replace true with cron-job origin
+app.use(cors({ origin: ['http://195.201.26.157', 'http://116.203.134.67', 'http://116.203.129.16'] }));
 
 const getSeats = async (term_in, crn_in) => {
   const $ = await querySection(term_in, crn_in);
@@ -36,29 +35,60 @@ const querySection = async (term_in, crn_in) => {
 };
 
 app.get('/check_openings/', async (req, res) => {
+  const previousResult = {};
+
   const snapshot = await firestore.collection("users").get();
 
   snapshot.forEach(async user => {
-    user.data().courses.forEach(async ({name, term, crn}) => {
-      console.log(term, 'term|crn', crn)
-      var seats = await getSeats(term, crn);
-      console.log(seats);
-      // TODO: Actually do something with the seat data
-      // (i.e. integrate push notifications and use firecloud store to get auth tokens)
-      const payload = {
-        notification: {
-          title: 'You got a msg!',
-          body: `${name} ${seats.open > 0 ? 'OPEN' : 'CLOSED'}`,
-          click_action: 'FLUTTER_NOTIFICATION_CLICK'
+    user.data().courses.forEach(async (course) => {
+      if (course == undefined || !course.hasOwnProperty('name') || !course.hasOwnProperty('crn') || !course.hasOwnProperty('term')) {
+        console.log('Undefined Course for user: ' + user.id);
+        return;
+      }
+      const {name, term, crn} = course;
+      var openSeats;
+
+      if (crn in previousResult) {
+        openSeats = previousResult[crn];
+      } else {
+        const seats = await getSeats(term, crn);
+        previousResult[crn] = seats.open;
+        openSeats = seats.open;
+      }
+
+      if (openSeats > 0) {
+        const payload = {
+          notification: {
+            title: 'Course Opening',
+            body: `${name} is OPEN with ${openSeats} seats!`,
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK'
+          }
+        };
+
+        try {
+          // Change to sendMulticast? Requires Message objects instead of strings but may be more efficient.
+          const userTokens = user.data().tokens;
+          const response = await fcMessaging.sendToDevice(userTokens, payload);
+          // For each message check if there was an error.
+          response.results.forEach(async (result, index) => {
+            const error = result.error;
+            if (error) {
+              console.log('Failure sending cloud message to', userTokens[index], error);
+              // Cleanup the tokens who are not registered anymore.
+              if (error.code === 'messaging/invalid-registration-token' ||
+                  error.code === 'messaging/registration-token-not-registered') {
+                  await firestore.collection("users").doc(user.id).update({
+                    'tokens': admin.firestore.FieldValue.arrayRemove(userTokens[index])
+                  });
+              }
+            } else {
+              // No error sending cloud message
+            }
+          });
+          // console.log(response)
+        } catch (e) {
+          console.log(e)
         }
-      };
-      try {
-        // Change to sendMulti-
-        const response = await fcMessaging.sendToDevice(user.data().tokens[0], payload);
-        console.log('sent push?')
-        console.log(response)
-      } catch (e) {
-        console.log(e)
       }
     });
     

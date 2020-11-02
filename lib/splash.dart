@@ -13,6 +13,7 @@ class SplashPage extends StatefulWidget {
 class _SplashPageState extends State<SplashPage> {
   @override
   initState() {
+    super.initState();
     FirebaseAuth.instance
         .currentUser()
         .then((currentUser) => {
@@ -29,7 +30,6 @@ class _SplashPageState extends State<SplashPage> {
                 }
             })
         .catchError((err) => print(err));
-    super.initState();
   }
 
   @override

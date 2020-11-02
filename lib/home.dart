@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:gt_scheduling_app/add_courses.dart';
 
@@ -22,49 +25,94 @@ class _HomePageState extends State<HomePage> {
 
   Set<CourseInfo> _selectedCourses = Set();
 
-  // static Future<dynamic> backgroundMessageHandler(
-  //     Map<String, dynamic> message) async {
-  //   print("onbackgroundmessage: $message");
-  //   return Future<void>.value();
-  // }
+  static Future<dynamic> backgroundMessageHandler(
+      Map<String, dynamic> message) async {
+    print("onbackgroundmessage: $message");
+    return Future<void>.value();
+  }
+
+  void _saveMessagingToken() {
+    // Get the token for this device
+    fcMessaging.onTokenRefresh.listen((fcMessagingToken) async {
+      final sharedPrefs = await SharedPreferences.getInstance();
+      final String curToken = sharedPrefs.getString('fcmToken');
+      if (fcMessagingToken != curToken) {
+        // Save it to Firestore
+        if (fcMessagingToken != null) {
+          await firestoreInstance
+              .collection("users")
+              .document(widget.uid)
+              .updateData({
+            "tokens": FieldValue.arrayUnion([fcMessagingToken])
+          });
+          print('Saved token: $fcMessagingToken');
+        } else {
+          print('Could not retrieve FCM token.');
+        }
+        await sharedPrefs.setString('fcmToken', fcMessagingToken);
+      } else {
+        print('Old fcm token.');
+      }
+    });
+  }
 
   @override
   void initState() {
     super.initState();
-    // Somewhere we need to add current token to firestore on startup
-    fcMessaging
-        .getToken()
-        .then((value) => print("This is your fcm token: " + value));
+
+    if (Platform.isIOS) {
+      fcMessaging.onIosSettingsRegistered.listen((data) {
+        print("IOS settings registered: $data");
+        _saveMessagingToken();
+      });
+      fcMessaging.requestNotificationPermissions(IosNotificationSettings());
+    } else {
+      _saveMessagingToken();
+    }
 
     fcMessaging.configure(
-      onMessage: (Map<String, dynamic> message) async {
-        print("onMessage: $message");
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-                content: ListTile(
-                  title: Text(message['notification']['title']),
-                  subtitle: Text(message['notification']['body']),
-                ),
-                actions: <Widget>[
-                  FlatButton(
-                    color: Colors.amber,
-                    child: Text('Ok'),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+        onMessage: (Map<String, dynamic> message) async {
+          print("onMessage: $message");
+
+          // final snackbar = SnackBar(
+          //   content: Text(message['notification']['title']),
+          //   action: SnackBarAction(
+          //     label: 'Go',
+          //     onPressed: () => null,
+          //   ),
+          //   duration: Duration(seconds: 4),
+          // );
+
+          // Scaffold.of(context).showSnackBar(snackbar);
+          // _scaffoldKey.currentState.showSnackBar(snackbar);
+
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              content: ListTile(
+                title: Text(message['notification']['title']),
+                subtitle: Text(message['notification']['body']),
               ),
-        );
-      },
-      onLaunch: (Map<String, dynamic> message) async {
-        print("onLaunch: $message");
-        // TODO optional
-      },
-      onResume: (Map<String, dynamic> message) async {
-        print("onResume: $message");
-        // TODO optional
-      },
-    );
+              actions: <Widget>[
+                FlatButton(
+                  color: Colors.purple,
+                  child: Text('Ok'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+          return;
+        },
+        onLaunch: (Map<String, dynamic> message) async {
+          print("onLaunch: $message");
+          return;
+        },
+        onResume: (Map<String, dynamic> message) async {
+          print("onResume: $message");
+          return;
+        },
+        onBackgroundMessage: backgroundMessageHandler);
 
     populateSelectedCourses();
   }
@@ -73,7 +121,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       firestoreInstance.collection("users").document(widget.uid).updateData({
         "courses": FieldValue.arrayRemove(remCourses.map((CourseInfo course) {
-          return {"crn": course.crn, "name": course.name};
+          return course.toFirestoreObject();
         }).toList())
       });
       remCourses.forEach((remCourse) {
@@ -87,7 +135,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       firestoreInstance.collection("users").document(widget.uid).updateData({
         "courses": FieldValue.arrayUnion(addCourses.map((CourseInfo course) {
-          return {"crn": course.crn, "name": course.name};
+          return course.toFirestoreObject();
         }).toList())
       });
       addCourses.forEach((addCourse) {
@@ -113,7 +161,7 @@ class _HomePageState extends State<HomePage> {
             builder: (BuildContext context) =>
                 AddCoursesPage(selected: _selectedCourses)));
 
-    // After user has updated classes on add_courses, get updated info:
+    // After user has updated classes on add_courses, get updated info here:
     Set<CourseInfo> removed = updatedSelected[0], added = updatedSelected[1];
     removeSelectedCourses(removed);
     addSelectedCourses(added);
@@ -127,8 +175,8 @@ class _HomePageState extends State<HomePage> {
             info.name,
           ),
           trailing: Icon(
-            Icons.delete,
-            color: Colors.grey,
+            Icons.favorite,
+            color: Colors.red,
           ),
           onTap: () {
             removeSelectedCourses([info]);
@@ -158,6 +206,7 @@ class _HomePageState extends State<HomePage> {
             child: Text("Log Out"),
             textColor: Colors.white,
             onPressed: () {
+              fcMessaging.deleteInstanceID();
               FirebaseAuth.instance
                   .signOut()
                   .then((result) =>

@@ -15,14 +15,22 @@ class AddCoursesPage extends StatefulWidget {
 
 class _AddCoursesPageState extends State<AddCoursesPage> {
   final _allCourses = [
-    CourseInfo(name: 'CS 101-A', crn: 101, term: 202008),
-    CourseInfo(name: 'CHEM 102-G', crn: 102, term: 202008),
-    CourseInfo(name: 'PSYC 100-R', crn: 100, term: 202008),
+    // maybe remove the crn from title, just have name, number, section
+    CourseInfo(
+        name: 'Intro to Computing - 84942 - CS 1301 - B',
+        crn: 84942,
+        term: 202008),
+    CourseInfo(
+        name: 'Accounting I - 80774 - ACCT 2101 - C', crn: 80774, term: 202008),
+    CourseInfo(
+        name: 'Chemical Principles I - 84044 - CHEM 1211K - A',
+        crn: 84044,
+        term: 202008),
   ];
 
   Widget _buildAllCoursesRow(CourseInfo course) {
     final isSelected = widget.selected.singleWhere(
-            (elem) => elem.name == course.name && elem.crn == course.crn,
+            (elem) => elem.crn == course.crn,
             orElse: () => null) !=
         null;
     return ListTile(

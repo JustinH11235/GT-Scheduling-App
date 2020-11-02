@@ -103,7 +103,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                     // "uid": currentUser.uid,
                                     "uid": currentUser.user.uid,
                                     "email": emailInputController.text,
-                                    "courses": List()
+                                    "courses": List(),
+                                    "tokens": List(),
                                   })
                                   .then((result) => {
                                         // currentUser
