@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'constants.dart' as Constants;
+
 import 'course_info.dart';
 
 class AddCoursesPage extends StatefulWidget {
@@ -14,20 +16,6 @@ class AddCoursesPage extends StatefulWidget {
 }
 
 class _AddCoursesPageState extends State<AddCoursesPage> {
-  final _allCourses = [
-    // maybe remove the crn from title, just have name, number, section
-    CourseInfo(
-        name: 'Intro to Computing - 84942 - CS 1301 - B',
-        crn: 84942,
-        term: 202008),
-    CourseInfo(
-        name: 'Accounting I - 80774 - ACCT 2101 - C', crn: 80774, term: 202008),
-    CourseInfo(
-        name: 'Chemical Principles I - 84044 - CHEM 1211K - A',
-        crn: 84044,
-        term: 202008),
-  ];
-
   Widget _buildAllCoursesRow(CourseInfo course) {
     final isSelected = widget.selected.singleWhere(
             (elem) => elem.crn == course.crn,
@@ -68,11 +56,12 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
   Widget _getAllCoursesListView() {
     return ListView.builder(
         padding: EdgeInsets.all(16.0),
-        itemCount: _allCourses.length,
+        itemCount: Constants.allCourses.length,
         itemBuilder: (context, i) {
           return Column(children: [
             Divider(),
-            _buildAllCoursesRow(_allCourses[i % _allCourses.length])
+            _buildAllCoursesRow(
+                Constants.allCourses[i % Constants.allCourses.length])
           ]);
         });
   }
