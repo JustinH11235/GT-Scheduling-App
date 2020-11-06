@@ -45,3 +45,4 @@ app.*.map.json
 
 # My Own.
 firestore.rules
+.runtimeconfig.json

@@ -2,10 +2,9 @@
 
 const functions = require('firebase-functions');
 const express = require('express');
-// Enable cross-origin requests from cron-jobs
-const cors = require('cors');
 // The Firebase Admin SDK to access Cloud Firestore
 const admin = require('firebase-admin');
+const https = require('https');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
@@ -18,7 +17,11 @@ const fcMessaging = admin.messaging();
 
 const app = express();
 
-app.use(cors({ origin: ['http://195.201.26.157', 'http://116.203.134.67', 'http://116.203.129.16'] }));
+const agent = new https.Agent({
+  host: 'oscar.gatech.edu',
+  path: '/',
+  rejectUnauthorized: false
+});
 
 const getSeats = async (term_in, crn_in) => {
   const $ = await querySection(term_in, crn_in);
@@ -33,14 +36,15 @@ const getSeats = async (term_in, crn_in) => {
 };
 
 const querySection = async (term_in, crn_in) => {
-  const result = await axios.get(`https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`);
+  const url = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`;
+  const result = await axios.get(url, { httpsAgent: agent });
   return cheerio.load(result.data);
 };
 
 app.get('/check_openings/', async (req, res) => {
   if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-    res.end();
-    return;
+    console.log('Attempted unauthorized request.');
+    return res.end();
   }
 
   const previousResult = {};
@@ -49,15 +53,16 @@ app.get('/check_openings/', async (req, res) => {
     var snapshot = await firestore.collection("users").get();
   } catch (e) {
     console.log('Get users collection failed: ' + e);
-    res.status(404).send('Failure: ' + e.name);
+    return res.status(404).send('Failure getting users.');
   }
-
-  snapshot.forEach(async user => {
+  
+  // TODO: Make each part resolve to a Promise.resolve() no matter what
+  await Promise.all(snapshot.docs.map(async user => {
     const userTokens = user.data().tokens;
-    user.data().courses.forEach(async (course) => {
+    return Promise.all(user.data().courses.map(async course => {
       if (course === undefined || !course.hasOwnProperty('name') || !course.hasOwnProperty('crn') || !course.hasOwnProperty('term')) {
         console.log('Undefined Course for user: ' + user.id);
-        return;
+        return Promise.resolve();
       }
 
       const {name, term, crn} = course;
@@ -70,7 +75,7 @@ app.get('/check_openings/', async (req, res) => {
           var seats = await getSeats(term, crn);
         } catch (e) {
           console.log('getSeats: ' + e);
-          return;
+          return Promise.resolve();
         }
         previousResult[crn] = seats.open;
         openSeats = seats.open;
@@ -89,11 +94,11 @@ app.get('/check_openings/', async (req, res) => {
         try {
           var response = await fcMessaging.sendToDevice(userTokens, payload);
         } catch (e) {
-          console.log(`FCM error for user ${user.id}:  + ${e}`);
-          return;
+          console.log(`FCM error for user ${user.id}: ${e}`);
+          return Promise.resolve();
         }
         // For each message check if there was an error.
-        response.results.forEach(async (result, index) => {
+        return Promise.all(response.results.map(async (result, index) => {
           const error = result.error;
           if (error) {
             console.log('Failure sending cloud message to', userTokens[index], error);
@@ -105,12 +110,14 @@ app.get('/check_openings/', async (req, res) => {
                 });
             }
           }
-        });
+        }));
       }
-    });
-  });
+
+      return Promise.resolve();
+    }));
+  }));
   
-  res.status(200).send('Success: checked openings!');
+  return res.status(200).send('Success: checked openings!');
 });
 
 exports.api = functions.https.onRequest(app);
