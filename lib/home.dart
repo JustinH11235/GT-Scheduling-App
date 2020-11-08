@@ -174,13 +174,15 @@ class _HomePageState extends State<HomePage> {
           title: Text(
             info.name,
           ),
-          trailing: Icon(
-            Icons.favorite,
-            color: Colors.red,
+          trailing: IconButton(
+            icon: Icon(
+              Icons.favorite,
+              color: Colors.red,
+            ),
+            onPressed: () {
+              removeSelectedCourses([info]);
+            },
           ),
-          onTap: () {
-            removeSelectedCourses([info]);
-          },
         );
       },
     );
@@ -204,7 +206,7 @@ class _HomePageState extends State<HomePage> {
         actions: <Widget>[
           FlatButton(
             child: Text("Log Out"),
-            textColor: Colors.white,
+            textColor: Colors.black,
             onPressed: () {
               fcMessaging.deleteInstanceID();
               FirebaseAuth.instance

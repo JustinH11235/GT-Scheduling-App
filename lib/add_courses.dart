@@ -56,12 +56,11 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
   Widget _getAllCoursesListView() {
     return ListView.builder(
         padding: EdgeInsets.all(16.0),
-        itemCount: Constants.allCourses.length,
+        itemCount: Constants.globalCoursesList.length,
         itemBuilder: (context, i) {
           return Column(children: [
             Divider(),
-            _buildAllCoursesRow(
-                Constants.allCourses[i % Constants.allCourses.length])
+            _buildAllCoursesRow(Constants.globalCoursesList[i])
           ]);
         });
   }

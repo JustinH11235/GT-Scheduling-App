@@ -9,8 +9,12 @@
     <application
         android:name=".Application"
         
-        android:label="gt_scheduling_app"
-        android:icon="@mipmap/ic_launcher">
+        android:label="GT Scheduler"
+        android:icon="@mipmap/launcher_icon">
+        <meta-data
+          android:name="com.google.firebase.messaging.default_notification_icon"
+          android:resource="@mipmap/launcher_icon" />
+
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTop"

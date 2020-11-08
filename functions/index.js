@@ -56,7 +56,6 @@ app.get('/check_openings/', async (req, res) => {
     return res.status(404).send('Failure getting users.');
   }
   
-  // TODO: Make each part resolve to a Promise.resolve() no matter what
   await Promise.all(snapshot.docs.map(async user => {
     const userTokens = user.data().tokens;
     return Promise.all(user.data().courses.map(async course => {
