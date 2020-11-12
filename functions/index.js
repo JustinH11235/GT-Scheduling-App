@@ -30,11 +30,11 @@ const getSeats = async (term_in, crn_in) => {
   const result = await axios.get(url, { httpsAgent: agent });
   const $ = cheerio.load(result.data);
   // const $ = await querySection(term_in, crn_in);
-  const response = $('span:contains("Seats")');
-  const seatData = response.first().parent().siblings();
+  const seatData = $('span:contains("Seats")').first().parent().siblings();
+  // const seatData = response.first().parent().siblings();
 
   return {
-    capacity: seatData[0].children[0].data,
+    capacity: seatData[0].children[0].data, // change to firstChild? Can be improved.
     taken: seatData[1].children[0].data,
     open: seatData[2].children[0].data
   };
@@ -142,49 +142,45 @@ app.get('/update_global_courses/', async (req, res) => {
   //   return res.end();
   // }
 
-  var globalCourses = [];
-
   const subjectsUrl = `https://oscar.gatech.edu/pls/bprod/bwckgens.p_proc_term_date?p_calling_proc=bwckschd.p_disp_dyn_sched&p_term=${currentTerm}`;
   const subjestsResult = await axios.get(subjectsUrl, { httpsAgent: agent });
   
   const $ = cheerio.load(subjestsResult.data);
-  const subjects = $('.dataentrytable select').children().map((ind, elem) => {
-    return elem.attribs.value;
-  }).get();
 
-  console.log('subjects', subjects)
+  const termName = $('.plaintable .staticheaders').children()[0].prev.data.trim();
+  const subjects = $('.dataentrytable select').children().map((ind, elem) => {
+    return {
+      subjectInitials: elem.attribs.value,
+      subjectFull: elem.firstChild.data
+    };
+  }).get();
   
-  const tmp = [subjects[0]]
-  await Promise.all(tmp.map(async subject => {
-    const coursesUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subject}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
+  const newDocument = {name: termName, subjects: []};
+
+  await Promise.all(subjects.map(async ({subjectInitials, subjectFull}) => {
+    const coursesUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
     const coursesResult = await axios.get(coursesUrl, { httpsAgent: agent });
   
     const $ = cheerio.load(coursesResult.data);
 
-    const courses = $('.datadisplaytable .ddtitle').map((ind, elem) => {
+    const courses = {};
+
+    $('.datadisplaytable .ddtitle').each((ind, elem) => {
       const [courseName, crn, subjectAndCourseNumber, sectionLetter] = elem.firstChild.firstChild.data.split(' - ');
-      return {
-        courseNumber: parseInt(subjectAndCourseNumber.split(' ')[1]),
-        courseName: courseName,
-        crn: parseInt(crn),
-        sectionLetter: sectionLetter
-      };
-    }).get();
+      const courseNumber = parseInt(subjectAndCourseNumber.split(' ')[1]);
 
-    console.log(courses[0])
-    // globalCourses = [...globalCourses, ...courses];
-    // console.log('did something')
+      courses[courseNumber] = courses[courseNumber] || {name: courseName, number: courseNumber, sections: []};
+      courses[courseNumber].sections.push({crn: parseInt(crn), letter: sectionLetter});
+    });
 
-    // make sure to get course number so we can sort by that in firestore.
-    // await firestore.collection("globalCourses").doc(currentTerm).set({
-      
-    // }, {
-    //   merge: true
-    // });
+    newDocument.subjects.push({nameInitials: subjectInitials, nameFull: subjectFull, courses: Object.values(courses)});
+
     return Promise.resolve();
   }));
 
-  // console.log(globalCourses.length)
+  await firestore.collection("globalCourses").doc(currentTerm.toString()).set(newDocument, {
+    merge: true
+  });
 
   return res.status(200).send('Success: updated global courses!');
 });
