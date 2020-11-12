@@ -17,10 +17,7 @@ class AddCoursesPage extends StatefulWidget {
 
 class _AddCoursesPageState extends State<AddCoursesPage> {
   Widget _buildAllCoursesRow(CourseInfo course) {
-    final isSelected = widget.selected.singleWhere(
-            (elem) => elem.crn == course.crn,
-            orElse: () => null) !=
-        null;
+    final isSelected = widget.selected.contains(course);
     return ListTile(
       title: Text(
         course.name,
@@ -31,13 +28,8 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
       ),
       onTap: () {
         setState(() {
-          if (widget.selected.singleWhere(
-                  // remove
-                  (elem) => elem.name == course.name && elem.crn == course.crn,
-                  orElse: () => null) !=
-              null) {
-            widget.selected.removeWhere(
-                (elem) => elem.name == course.name && elem.crn == course.crn);
+          if (widget.selected.contains(course)) {
+            widget.selected.remove(course);
 
             widget.removed.add(course);
             widget.added.remove(course);
@@ -75,7 +67,7 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
       body: _getAllCoursesListView(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pop(
-            context, [widget.removed, widget.added]), // ret updates
+            context, [widget.removed, widget.added]), // return updates
         tooltip: 'Back to Home',
         child: Icon(Icons.save),
       ),
