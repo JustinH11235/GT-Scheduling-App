@@ -74,7 +74,7 @@ app.get('/check_openings/', async (req, res) => {
 
       const {name, term, crn} = course;
 
-      if (term != currentTerm) {
+      if (term !== currentTerm) {
         await firestore.collection("users").doc(user.id).update({
           'courses': admin.firestore.FieldValue.arrayRemove(course)
         });

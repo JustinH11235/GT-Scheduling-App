@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'constants.dart' as Constants;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'course_info.dart';
 
@@ -16,8 +16,45 @@ class AddCoursesPage extends StatefulWidget {
 }
 
 class _AddCoursesPageState extends State<AddCoursesPage> {
+  final firestoreInstance = Firestore.instance;
+  final List<CourseInfo> globalCoursesList = List<CourseInfo>();
+
+  @override
+  void initState() {
+    super.initState();
+
+    populateGlobalCourses();
+  }
+
+  void populateGlobalCourses() async {
+    DocumentSnapshot termIDSnapshot = await firestoreInstance
+        .collection("globalCourses")
+        .document("currentTerm")
+        .get();
+    int termID = termIDSnapshot.data["currentTerm"];
+
+    DocumentSnapshot globalCoursesSnapshot = await firestoreInstance
+        .collection("globalCourses")
+        .document(termID.toString())
+        .get();
+
+    setState(() {
+      globalCoursesSnapshot.data['subjects'].forEach((subject) {
+        subject['courses'].forEach((course) {
+          course['sections'].forEach((section) {
+            globalCoursesList.add(CourseInfo(
+                term: termID,
+                crn: section['crn'],
+                name:
+                    "${subject['nameInitials']} ${course['number']} - ${section['letter']}"));
+          });
+        });
+      });
+    });
+  }
+
   Widget _buildAllCoursesRow(CourseInfo course) {
-    final isSelected = widget.selected.contains(course);
+    final bool isSelected = widget.selected.contains(course);
     return ListTile(
       title: Text(
         course.name,
@@ -34,7 +71,6 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
             widget.removed.add(course);
             widget.added.remove(course);
           } else {
-            // add
             widget.selected.add(course);
 
             widget.added.add(course);
@@ -48,12 +84,10 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
   Widget _getAllCoursesListView() {
     return ListView.builder(
         padding: EdgeInsets.all(16.0),
-        itemCount: Constants.globalCoursesList.length,
+        itemCount: globalCoursesList.length,
         itemBuilder: (context, i) {
-          return Column(children: [
-            Divider(),
-            _buildAllCoursesRow(Constants.globalCoursesList[i])
-          ]);
+          return Column(
+              children: [Divider(), _buildAllCoursesRow(globalCoursesList[i])]);
         });
   }
 
@@ -67,7 +101,7 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
       body: _getAllCoursesListView(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pop(
-            context, [widget.removed, widget.added]), // return updates
+            context, [widget.removed, widget.added]), // return updated selected
         tooltip: 'Back to Home',
         child: Icon(Icons.save),
       ),

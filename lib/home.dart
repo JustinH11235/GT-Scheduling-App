@@ -74,6 +74,7 @@ class _HomePageState extends State<HomePage> {
         onMessage: (Map<String, dynamic> message) async {
           print("onMessage: $message");
 
+          // Refactor to make snackbar work?
           // final snackbar = SnackBar(
           //   content: Text(message['notification']['title']),
           //   action: SnackBarAction(
@@ -147,11 +148,11 @@ class _HomePageState extends State<HomePage> {
   Future<void> populateSelectedCourses() async {
     DocumentSnapshot result =
         await firestoreInstance.collection("users").document(widget.uid).get();
-    List temp = result.data['courses'];
-    setState(() => temp.forEach((elem) => {
-          _selectedCourses.add(CourseInfo(
-              name: elem['name'], crn: elem['crn'], term: elem['term']))
-        }));
+    List courses = result.data['courses'];
+    setState(() {
+      courses.forEach(
+          (course) => _selectedCourses.add(CourseInfo.fromFirestore(course)));
+    });
   }
 
   void _goToAddCourses() async {
