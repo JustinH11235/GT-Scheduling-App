@@ -29,28 +29,28 @@ const getSeats = async (term_in, crn_in) => {
   const url = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`;
   const result = await axios.get(url, { httpsAgent: agent });
   const $ = cheerio.load(result.data);
-  // const $ = await querySection(term_in, crn_in);
-  const seatData = $('span:contains("Seats")').first().parent().siblings();
-  // const seatData = response.first().parent().siblings();
+  const seatData = $('table.datadisplaytable table.datadisplaytable td.dddefault');
+
+  const parseTableData = tableData => parseInt(tableData.firstChild.data);
 
   return {
-    capacity: seatData[0].children[0].data, // change to firstChild? Can be improved.
-    taken: seatData[1].children[0].data,
-    open: seatData[2].children[0].data
+    seats: {
+      capacity: parseTableData(seatData[0]),
+      taken: parseTableData(seatData[1]),
+      open: parseTableData(seatData[2])
+    }, waitlist: {
+      capacity: parseTableData(seatData[3]),
+      taken: parseTableData(seatData[4]),
+      open: parseTableData(seatData[5])
+    }
   };
 };
 
-// const querySection = async (term_in, crn_in) => {
-//   const url = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`;
-//   const result = await axios.get(url, { httpsAgent: agent });
-//   return cheerio.load(result.data);
-// };
-
 app.get('/check_openings/', async (req, res) => {
-  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-  //   console.log('Attempted unauthorized request.');
-  //   return res.end();
-  // }
+  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+    console.log('Attempted unauthorized request.');
+    return res.end();
+  }
 
   const previousResult = {};
 
@@ -88,13 +88,14 @@ app.get('/check_openings/', async (req, res) => {
         openSeats = previousResult[crn];
       } else {
         try {
-          var seats = await getSeats(term, crn);
+          var openings = await getSeats(term, crn);
+          console.log(openings)
         } catch (e) {
           console.log('getSeats: ' + e);
           return Promise.resolve();
         }
-        previousResult[crn] = seats.open;
-        openSeats = seats.open;
+        previousResult[crn] = openings.seats.open;
+        openSeats = openings.seats.open;
       }
 
       if (openSeats > 0) {
@@ -137,18 +138,18 @@ app.get('/check_openings/', async (req, res) => {
 });
 
 app.get('/update_global_courses/', async (req, res) => {
-  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-  //   console.log('Attempted unauthorized request.');
-  //   return res.end();
-  // }
+  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+    console.log('Attempted unauthorized request.');
+    return res.end();
+  }
 
   const subjectsUrl = `https://oscar.gatech.edu/pls/bprod/bwckgens.p_proc_term_date?p_calling_proc=bwckschd.p_disp_dyn_sched&p_term=${currentTerm}`;
   const subjestsResult = await axios.get(subjectsUrl, { httpsAgent: agent });
   
   const $ = cheerio.load(subjestsResult.data);
 
-  const termName = $('.plaintable .staticheaders').children()[0].prev.data.trim();
-  const subjects = $('.dataentrytable select').children().map((ind, elem) => {
+  const termName = $('table.plaintable div.staticheaders').children()[0].prev.data.trim();
+  const subjects = $('table.dataentrytable select').children().map((ind, elem) => {
     return {
       subjectInitials: elem.attribs.value,
       subjectFull: elem.firstChild.data
@@ -157,7 +158,8 @@ app.get('/update_global_courses/', async (req, res) => {
   
   const newDocument = {name: termName, subjects: []};
 
-  await Promise.all(subjects.map(async ({subjectInitials, subjectFull}) => {
+  let tmp = subjects.slice(0, 5);
+  await Promise.all(tmp.map(async ({subjectInitials, subjectFull}) => {
     const coursesUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
     const coursesResult = await axios.get(coursesUrl, { httpsAgent: agent });
   
