@@ -47,10 +47,10 @@ const getSeats = async (term_in, crn_in) => {
 };
 
 app.get('/check_openings/', async (req, res) => {
-  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-  //   console.log('Attempted unauthorized request.');
-  //   return res.end();
-  // }
+  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+    console.log('Attempted unauthorized request.');
+    return res.end();
+  }
 
   const previousResult = {};
 
@@ -82,27 +82,26 @@ app.get('/check_openings/', async (req, res) => {
         return Promise.resolve();
       }
 
-      var openSeats;
+      var seatInfo;
 
       if (crn in previousResult) {
-        openSeats = previousResult[crn];
+        seatInfo = previousResult[crn];
       } else {
         try {
           var openings = await getSeats(term, crn);
-          console.log(openings)
         } catch (e) {
           console.log('getSeats: ' + e);
           return Promise.resolve();
         }
-        previousResult[crn] = openings.seats.open;
-        openSeats = openings.seats.open;
+        previousResult[crn] = openings;
+        seatInfo = openings;
       }
 
-      if (openSeats > 0) {
-        const payload = {
+      if (seatInfo.seats.open || seatInfo.waitlist.open) {
+        var payload = {
           notification: {
             title: 'Course Opening',
-            body: `${name} is OPEN with ${openSeats} seats!`,
+            body: `${name} is OPEN with ${seatInfo.seats.open ? seatInfo.seats.open : seatInfo.waitlist.open} seats!`,
             clickAction: 'FLUTTER_NOTIFICATION_CLICK'
           }
         };
@@ -138,10 +137,10 @@ app.get('/check_openings/', async (req, res) => {
 });
 
 app.get('/update_global_courses/', async (req, res) => {
-  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-  //   console.log('Attempted unauthorized request.');
-  //   return res.end();
-  // }
+  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+    console.log('Attempted unauthorized request.');
+    return res.end();
+  }
 
   const subjectsUrl = `https://oscar.gatech.edu/pls/bprod/bwckgens.p_proc_term_date?p_calling_proc=bwckschd.p_disp_dyn_sched&p_term=${currentTerm}`;
   const subjestsResult = await axios.get(subjectsUrl, { httpsAgent: agent });

@@ -25,6 +25,7 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
   @override
   void initState() {
     super.initState();
+    print('add_courses init state happened');
 
     populateGlobalCourses();
   }

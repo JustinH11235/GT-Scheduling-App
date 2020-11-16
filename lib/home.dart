@@ -59,6 +59,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    print('home init state happened');
 
     if (Platform.isIOS) {
       fcMessaging.onIosSettingsRegistered.listen((data) {
@@ -90,14 +91,20 @@ class _HomePageState extends State<HomePage> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              content: ListTile(
-                title: Text(message['notification']['title']),
-                subtitle: Text(message['notification']['body']),
+              content: Container(
+                height: 50.0,
+                child: ListTile(
+                  title: Text(message['notification']['title']),
+                  subtitle: Padding(
+                    padding: EdgeInsets.only(top: 5.0),
+                    child: Text(message['notification']['body']),
+                  ),
+                ),
               ),
               actions: <Widget>[
                 FlatButton(
-                  color: Colors.purple,
-                  child: Text('Ok'),
+                  color: Theme.of(context).accentColor,
+                  child: Text('Ok', style: TextStyle(color: Colors.black)),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
