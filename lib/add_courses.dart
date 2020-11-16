@@ -17,7 +17,10 @@ class AddCoursesPage extends StatefulWidget {
 
 class _AddCoursesPageState extends State<AddCoursesPage> {
   final firestoreInstance = Firestore.instance;
-  final List<CourseInfo> globalCoursesList = List<CourseInfo>();
+  final Map<String, Map<String, List<CourseInfo>>> globalCoursesMap = Map();
+
+  String _subjectDropdownValue;
+  String _courseDropdownValue;
 
   @override
   void initState() {
@@ -40,13 +43,18 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
 
     setState(() {
       globalCoursesSnapshot.data['subjects'].forEach((subject) {
+        final String subjectNameInitials = subject['nameInitials'];
+        globalCoursesMap[subjectNameInitials] = Map<String, List<CourseInfo>>();
         subject['courses'].forEach((course) {
+          final String courseNumber = course['number'].toString();
+          globalCoursesMap[subjectNameInitials][courseNumber] =
+              List<CourseInfo>();
           course['sections'].forEach((section) {
-            globalCoursesList.add(CourseInfo(
+            globalCoursesMap[subjectNameInitials][courseNumber].add(CourseInfo(
                 term: termID,
                 crn: section['crn'],
                 name:
-                    "${subject['nameInitials']} ${course['number']} - ${section['letter']}"));
+                    "$subjectNameInitials $courseNumber - ${section['letter']}"));
           });
         });
       });
@@ -82,12 +90,22 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
   }
 
   Widget _getAllCoursesListView() {
+    List<CourseInfo> globalCoursesList = _subjectDropdownValue == null
+        ? []
+        : _courseDropdownValue == null
+            ? globalCoursesMap[_subjectDropdownValue]
+                .values
+                .expand((i) => i)
+                .toList()
+            : globalCoursesMap[_subjectDropdownValue][_courseDropdownValue];
     return ListView.builder(
         padding: EdgeInsets.all(16.0),
         itemCount: globalCoursesList.length,
         itemBuilder: (context, i) {
-          return Column(
-              children: [Divider(), _buildAllCoursesRow(globalCoursesList[i])]);
+          return Column(children: [
+            _buildAllCoursesRow(globalCoursesList[i]),
+            Divider(),
+          ]);
         });
   }
 
@@ -98,7 +116,69 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
         title: Text('Add Courses'),
         automaticallyImplyLeading: false,
       ),
-      body: _getAllCoursesListView(),
+      body: Column(children: [
+        Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              DropdownButton<String>(
+                value: _subjectDropdownValue,
+                hint: Text('Subject'),
+                items: ['', ...globalCoursesMap.keys].map((value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Container(
+                      width: 100,
+                      child: new Text(
+                        value.isEmpty ? 'Subject' : value,
+                        style: TextStyle(
+                            color: value.isEmpty
+                                ? Theme.of(context).unselectedWidgetColor
+                                : Colors.black),
+                      ),
+                    ),
+                  );
+                }).toList(growable: false),
+                onChanged: (String val) {
+                  setState(() {
+                    _subjectDropdownValue = val.isEmpty ? null : val;
+                    _courseDropdownValue = null;
+                  });
+                },
+              ),
+              DropdownButton<String>(
+                value: _courseDropdownValue,
+                hint: Text('Course #'),
+                items: _subjectDropdownValue == null
+                    ? []
+                    : ['', ...globalCoursesMap[_subjectDropdownValue].keys]
+                        .map((value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Container(
+                            width: 100,
+                            child: new Text(
+                              value.isEmpty ? 'Course #' : value,
+                              style: TextStyle(
+                                  color: value.isEmpty
+                                      ? Theme.of(context).unselectedWidgetColor
+                                      : Colors.black),
+                            ),
+                          ),
+                        );
+                      }).toList(growable: false),
+                onChanged: (String val) {
+                  setState(() {
+                    _courseDropdownValue = val.isEmpty ? null : val;
+                  });
+                },
+              ),
+            ]),
+        Expanded(
+          child: _getAllCoursesListView(),
+        ),
+      ]),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pop(
             context, [widget.removed, widget.added]), // return updated selected
