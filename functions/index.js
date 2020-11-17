@@ -23,6 +23,11 @@ const agent = new https.Agent({
 });
 
 const checkOpenings = async (req, res) => {
+  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+    console.log('Attempted unauthorized request.');
+    return res.end();
+  }
+
   const getSeats = async (term_in, crn_in) => {
     const url = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`;
     const result = await axios.get(url, { httpsAgent: agent });
@@ -43,11 +48,6 @@ const checkOpenings = async (req, res) => {
       }
     };
   };
-
-  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-    console.log('Attempted unauthorized request.');
-    return res.end();
-  }
 
   const currentTerm = (await firestore.collection("globalCourses").doc("currentTerm").get()).data().currentTerm;
   const previousResult = {};
@@ -146,7 +146,7 @@ const updateGlobalCourses = async (req, res) => {
 
   const termsUrl = 'https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_dyn_sched';
   try {
-    var termsResult = await axios.get(termsUrl, { httpsAgent: agent, timeout: 10000 });
+    var termsResult = await axios.get(termsUrl, { httpsAgent: agent });
   } catch (e) {
     console.error(`Erorr getting currentTerm: ${e}`);
     return res.status(404).send('Failure getting currentTerm.');
@@ -165,7 +165,7 @@ const updateGlobalCourses = async (req, res) => {
 
   const subjectsUrl = `https://oscar.gatech.edu/pls/bprod/bwckgens.p_proc_term_date?p_calling_proc=bwckschd.p_disp_dyn_sched&p_term=${currentTerm}`;
   try {
-    var subjectsResult = await axios.get(subjectsUrl, { httpsAgent: agent, timeout: 10000 });
+    var subjectsResult = await axios.get(subjectsUrl, { httpsAgent: agent });
   } catch (e) {
     console.error(`Erorr getting subjects: ${e}`);
     return res.status(404).send('Failure getting subjects.');
@@ -177,11 +177,11 @@ const updateGlobalCourses = async (req, res) => {
   const newDocument = {name: termName, subjects: []};
 
   try {
-    await Promise.all($subjects('table.dataentrytable select option').toArray().map(async elem => {
+    await Promise.all($subjects('table.dataentrytable select option').get().map(async elem => {
       const subjectInitials = elem.attribs.value;
       const subjectFull = elem.firstChild.data;
       const sectionsUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
-      const sectionsResult = await axios.get(sectionsUrl, { httpsAgent: agent, timeout: 30000 });
+      const sectionsResult = await axios.get(sectionsUrl, { httpsAgent: agent });
       const $sections = cheerio.load(sectionsResult.data);
 
       const courses = {};
