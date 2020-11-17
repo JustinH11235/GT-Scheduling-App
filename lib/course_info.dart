@@ -1,4 +1,4 @@
-class CourseInfo {
+class CourseInfo implements Comparable<CourseInfo> {
   int term;
   int crn;
   String name;
@@ -12,6 +12,11 @@ class CourseInfo {
 
   @override
   int get hashCode => (37 + term) * 37 + crn;
+
+  @override
+  int compareTo(CourseInfo other) {
+    return name.compareTo(other.name);
+  }
 
   Map<String, dynamic> toFirestoreObject() {
     return {"name": this.name, "crn": crn, "term": term};

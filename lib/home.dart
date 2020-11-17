@@ -23,6 +23,7 @@ class _HomePageState extends State<HomePage> {
   final firestoreInstance = Firestore.instance;
   final FirebaseMessaging fcMessaging = FirebaseMessaging();
 
+  final Map<String, Map<String, List<CourseInfo>>> _globalCoursesMap = Map();
   Set<CourseInfo> _selectedCourses = Set();
 
   static Future<dynamic> backgroundMessageHandler(
@@ -122,34 +123,39 @@ class _HomePageState extends State<HomePage> {
         },
         onBackgroundMessage: backgroundMessageHandler);
 
+    populateGlobalCourses();
     populateSelectedCourses();
   }
 
   void removeSelectedCourses(Iterable<CourseInfo> remCourses) async {
-    setState(() {
-      firestoreInstance.collection("users").document(widget.uid).updateData({
-        "courses": FieldValue.arrayRemove(remCourses.map((CourseInfo course) {
-          return course.toFirestoreObject();
-        }).toList())
+    if (remCourses.isNotEmpty) {
+      setState(() {
+        firestoreInstance.collection("users").document(widget.uid).updateData({
+          "courses": FieldValue.arrayRemove(remCourses.map((CourseInfo course) {
+            return course.toFirestoreObject();
+          }).toList())
+        });
+        remCourses.forEach((remCourse) {
+          _selectedCourses
+              .removeWhere((selectedCourse) => selectedCourse == remCourse);
+        });
       });
-      remCourses.forEach((remCourse) {
-        _selectedCourses
-            .removeWhere((selectedCourse) => selectedCourse == remCourse);
-      });
-    });
+    }
   }
 
   void addSelectedCourses(Iterable<CourseInfo> addCourses) async {
-    setState(() {
-      firestoreInstance.collection("users").document(widget.uid).updateData({
-        "courses": FieldValue.arrayUnion(addCourses.map((CourseInfo course) {
-          return course.toFirestoreObject();
-        }).toList())
+    if (addCourses.isNotEmpty) {
+      setState(() {
+        firestoreInstance.collection("users").document(widget.uid).updateData({
+          "courses": FieldValue.arrayUnion(addCourses.map((CourseInfo course) {
+            return course.toFirestoreObject();
+          }).toList())
+        });
+        addCourses.forEach((addCourse) {
+          _selectedCourses.add(addCourse);
+        });
       });
-      addCourses.forEach((addCourse) {
-        _selectedCourses.add(addCourse);
-      });
-    });
+    }
   }
 
   Future<void> populateSelectedCourses() async {
@@ -162,17 +168,47 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> populateGlobalCourses() async {
+    DocumentSnapshot termIDSnapshot = await firestoreInstance
+        .collection("globalCourses")
+        .document("currentTerm")
+        .get();
+    int termID = termIDSnapshot.data["currentTerm"].toInt();
+
+    DocumentSnapshot globalCoursesSnapshot = await firestoreInstance
+        .collection("globalCourses")
+        .document(termID.toString())
+        .get();
+
+    globalCoursesSnapshot.data['subjects'].forEach((subject) {
+      final String subjectNameInitials = subject['nameInitials'];
+      _globalCoursesMap[subjectNameInitials] = Map<String, List<CourseInfo>>();
+      subject['courses'].forEach((course) {
+        final String courseNumber = course['number'].toString();
+        _globalCoursesMap[subjectNameInitials][courseNumber] =
+            List<CourseInfo>();
+        course['sections'].forEach((section) {
+          _globalCoursesMap[subjectNameInitials][courseNumber].add(CourseInfo(
+              term: termID,
+              crn: section['crn'],
+              name:
+                  "$subjectNameInitials $courseNumber - ${section['letter']}"));
+        });
+      });
+    });
+  }
+
   void _goToAddCourses() async {
     final List<Set<CourseInfo>> updatedSelected = await Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (BuildContext context) =>
-                AddCoursesPage(selected: _selectedCourses)));
+            builder: (BuildContext context) => AddCoursesPage(
+                globalCoursesMap: _globalCoursesMap,
+                selected: Set.from(_selectedCourses))));
 
     // After user has updated classes on add_courses, get updated info here:
-    Set<CourseInfo> removed = updatedSelected[0], added = updatedSelected[1];
-    removeSelectedCourses(removed);
-    addSelectedCourses(added);
+    removeSelectedCourses(updatedSelected[0]);
+    addSelectedCourses(updatedSelected[1]);
   }
 
   Widget _getSelectedCoursesListView() {

@@ -15,49 +15,47 @@ admin.initializeApp({
 const firestore = admin.firestore();
 const fcMessaging = admin.messaging();
 
-const app = express();
-
 const agent = new https.Agent({
   host: 'oscar.gatech.edu',
   path: '/',
-  rejectUnauthorized: false
+  rejectUnauthorized: false,
+  keepAlive: true
 });
 
-const currentTerm = 202102;
+const checkOpenings = async (req, res) => {
+  const getSeats = async (term_in, crn_in) => {
+    const url = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`;
+    const result = await axios.get(url, { httpsAgent: agent });
+    const $ = cheerio.load(result.data);
+    const seatData = $('table.datadisplaytable table.datadisplaytable td.dddefault');
 
-const getSeats = async (term_in, crn_in) => {
-  const url = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`;
-  const result = await axios.get(url, { httpsAgent: agent });
-  const $ = cheerio.load(result.data);
-  const seatData = $('table.datadisplaytable table.datadisplaytable td.dddefault');
+    const parseTableData = tableData => parseInt(tableData.firstChild.data);
 
-  const parseTableData = tableData => parseInt(tableData.firstChild.data);
-
-  return {
-    seats: {
-      capacity: parseTableData(seatData[0]),
-      taken: parseTableData(seatData[1]),
-      open: parseTableData(seatData[2])
-    }, waitlist: {
-      capacity: parseTableData(seatData[3]),
-      taken: parseTableData(seatData[4]),
-      open: parseTableData(seatData[5])
-    }
+    return {
+      seats: {
+        capacity: parseTableData(seatData[0]),
+        taken: parseTableData(seatData[1]),
+        open: parseTableData(seatData[2])
+      }, waitlist: {
+        capacity: parseTableData(seatData[3]),
+        taken: parseTableData(seatData[4]),
+        open: parseTableData(seatData[5])
+      }
+    };
   };
-};
 
-app.get('/check_openings/', async (req, res) => {
-  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-  //   console.log('Attempted unauthorized request.');
-  //   return res.end();
-  // }
+  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+    console.log('Attempted unauthorized request.');
+    return res.end();
+  }
 
+  const currentTerm = (await firestore.collection("globalCourses").doc("currentTerm").get()).data().currentTerm;
   const previousResult = {};
 
   try {
     var snapshot = await firestore.collection("users").get();
   } catch (e) {
-    console.log('Get users collection failed: ' + e);
+    console.error('Get users collection failed: ' + e);
     return res.status(404).send('Failure getting users.');
   }
   
@@ -138,61 +136,83 @@ app.get('/check_openings/', async (req, res) => {
   }));
   
   return res.status(200).send('Success: checked openings!');
-});
+};
 
-app.get('/update_global_courses/', async (req, res) => {
-  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-  //   console.log('Attempted unauthorized request.');
-  //   return res.end();
-  // }
+const updateGlobalCourses = async (req, res) => {
+  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+    console.log('Attempted unauthorized request.');
+    return res.end();
+  }
+
+  const termsUrl = 'https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_dyn_sched';
+  try {
+    var termsResult = await axios.get(termsUrl, { httpsAgent: agent, timeout: 10000 });
+  } catch (e) {
+    console.error(`Erorr getting currentTerm: ${e}`);
+    return res.status(404).send('Failure getting currentTerm.');
+  }
+  const $terms = cheerio.load(termsResult.data);
+
+  const terms = $terms('table.dataentrytable select option').toArray();
+  var currentTerm;
+  for (let i = 0; i < terms.length; ++i) {
+    let termId = terms[i].attribs.value.slice(-2);
+    if (termId === '02' || termId === '05' || termId === '08') {
+      currentTerm = parseInt(terms[i].attribs.value);
+      break;
+    }
+  }
 
   const subjectsUrl = `https://oscar.gatech.edu/pls/bprod/bwckgens.p_proc_term_date?p_calling_proc=bwckschd.p_disp_dyn_sched&p_term=${currentTerm}`;
-  const subjestsResult = await axios.get(subjectsUrl, { httpsAgent: agent });
+  try {
+    var subjectsResult = await axios.get(subjectsUrl, { httpsAgent: agent, timeout: 10000 });
+  } catch (e) {
+    console.error(`Erorr getting subjects: ${e}`);
+    return res.status(404).send('Failure getting subjects.');
+  }
   
-  const $ = cheerio.load(subjestsResult.data);
+  const $subjects = cheerio.load(subjectsResult.data);
 
-  const termName = $('table.plaintable div.staticheaders').children()[0].prev.data.trim();
-  const subjects = $('table.dataentrytable select').children().map((ind, elem) => {
-    return {
-      subjectInitials: elem.attribs.value,
-      subjectFull: elem.firstChild.data
-    };
-  }).get();
-  
+  const termName = $subjects('table.plaintable div.staticheaders').children()[0].prev.data.trim();
   const newDocument = {name: termName, subjects: []};
-  
-  await Promise.all(subjects.map(async ({subjectInitials, subjectFull}) => {
-    const coursesUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
-    const coursesResult = await axios.get(coursesUrl, { httpsAgent: agent });
-  
-    const $ = cheerio.load(coursesResult.data);
 
-    const courses = {};
+  try {
+    await Promise.all($subjects('table.dataentrytable select option').toArray().map(async elem => {
+      const subjectInitials = elem.attribs.value;
+      const subjectFull = elem.firstChild.data;
+      const sectionsUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
+      const sectionsResult = await axios.get(sectionsUrl, { httpsAgent: agent, timeout: 30000 });
+      const $sections = cheerio.load(sectionsResult.data);
 
-    $('table.datadisplaytable th.ddtitle').each((ind, elem) => {
-      const titleArray = elem.firstChild.firstChild.data.split(' - ');
-      
-      const courseName = titleArray.slice(0, -3).join(' - ');
-      const crn = parseInt(titleArray[titleArray.length - 3]);
-      const courseNumber = parseInt(titleArray[titleArray.length - 2].split(' ')[1]);
-      const sectionLetter = titleArray[titleArray.length - 1];
-      
-      if (!(courseNumber in courses)) {
-        courses[courseNumber] = {name: courseName, number: courseNumber, sections: []};
-      }
-      courses[courseNumber].sections.push({crn: crn, letter: sectionLetter});
-    });
+      const courses = {};
+      $sections('table.datadisplaytable th.ddtitle').each((ind, elem) => {
+        const titleArray = elem.firstChild.firstChild.data.split(' - ');
+        
+        const courseName = titleArray.slice(0, -3).join(' - ');
+        const crn = parseInt(titleArray[titleArray.length - 3]);
+        const courseNumber = parseInt(titleArray[titleArray.length - 2].split(' ')[1]);
+        const sectionLetter = titleArray[titleArray.length - 1];
+        
+        if (!(courseNumber in courses)) {
+          courses[courseNumber] = {name: courseName, number: courseNumber, sections: []};
+        }
+        courses[courseNumber].sections.push({crn: crn, letter: sectionLetter});
+      });
 
-    newDocument.subjects.push({nameInitials: subjectInitials, nameFull: subjectFull, courses: Object.values(courses)});
+      newDocument.subjects.push({nameInitials: subjectInitials, nameFull: subjectFull, courses: Object.values(courses)});
+      return Promise.resolve();
+    }));
+  } catch (e) {
+    console.error(`Error getting sections: ${e}`);
+    return res.status(404).send('Failure getting sections.');
+  }
 
-    return Promise.resolve();
-  }));
-  
   await firestore.collection("globalCourses").doc(currentTerm.toString()).set(newDocument, {
     merge: true
   });
 
   return res.status(200).send('Success: updated global courses!');
-});
+};
 
-exports.api = functions.https.onRequest(app);
+exports.check_openings = functions.https.onRequest(checkOpenings);
+exports.update_global_courses = functions.https.onRequest(updateGlobalCourses);
