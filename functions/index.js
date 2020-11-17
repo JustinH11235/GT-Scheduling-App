@@ -47,10 +47,10 @@ const getSeats = async (term_in, crn_in) => {
 };
 
 app.get('/check_openings/', async (req, res) => {
-  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-    console.log('Attempted unauthorized request.');
-    return res.end();
-  }
+  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+  //   console.log('Attempted unauthorized request.');
+  //   return res.end();
+  // }
 
   const previousResult = {};
 
@@ -141,15 +141,15 @@ app.get('/check_openings/', async (req, res) => {
 });
 
 app.get('/update_global_courses/', async (req, res) => {
-  if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
-    console.log('Attempted unauthorized request.');
-    return res.end();
-  }
+  // if (req.get('Authorization') === undefined || req.get('Authorization') !== functions.config().envs.secret) {
+  //   console.log('Attempted unauthorized request.');
+  //   return res.end();
+  // }
 
   const subjectsUrl = `https://oscar.gatech.edu/pls/bprod/bwckgens.p_proc_term_date?p_calling_proc=bwckschd.p_disp_dyn_sched&p_term=${currentTerm}`;
   const subjestsResult = await axios.get(subjectsUrl, { httpsAgent: agent });
   
-  const $ = cheerio.load(await axios.get(subjectsUrl, { httpsAgent: agent }).data);
+  const $ = cheerio.load(subjestsResult.data);
 
   const termName = $('table.plaintable div.staticheaders').children()[0].prev.data.trim();
   const subjects = $('table.dataentrytable select').children().map((ind, elem) => {
