@@ -149,7 +149,7 @@ app.get('/update_global_courses/', async (req, res) => {
   const subjectsUrl = `https://oscar.gatech.edu/pls/bprod/bwckgens.p_proc_term_date?p_calling_proc=bwckschd.p_disp_dyn_sched&p_term=${currentTerm}`;
   const subjestsResult = await axios.get(subjectsUrl, { httpsAgent: agent });
   
-  const $ = cheerio.load(subjestsResult.data);
+  const $ = cheerio.load(await axios.get(subjectsUrl, { httpsAgent: agent }).data);
 
   const termName = $('table.plaintable div.staticheaders').children()[0].prev.data.trim();
   const subjects = $('table.dataentrytable select').children().map((ind, elem) => {
@@ -160,7 +160,7 @@ app.get('/update_global_courses/', async (req, res) => {
   }).get();
   
   const newDocument = {name: termName, subjects: []};
-
+  
   await Promise.all(subjects.map(async ({subjectInitials, subjectFull}) => {
     const coursesUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
     const coursesResult = await axios.get(coursesUrl, { httpsAgent: agent });
@@ -169,19 +169,25 @@ app.get('/update_global_courses/', async (req, res) => {
 
     const courses = {};
 
-    $('.datadisplaytable .ddtitle').each((ind, elem) => {
-      const [courseName, crn, subjectAndCourseNumber, sectionLetter] = elem.firstChild.firstChild.data.split(' - ');
-      const courseNumber = parseInt(subjectAndCourseNumber.split(' ')[1]);
-
-      courses[courseNumber] = courses[courseNumber] || {name: courseName, number: courseNumber, sections: []};
-      courses[courseNumber].sections.push({crn: parseInt(crn), letter: sectionLetter});
+    $('table.datadisplaytable th.ddtitle').each((ind, elem) => {
+      const titleArray = elem.firstChild.firstChild.data.split(' - ');
+      
+      const courseName = titleArray.slice(0, -3).join(' - ');
+      const crn = parseInt(titleArray[titleArray.length - 3]);
+      const courseNumber = parseInt(titleArray[titleArray.length - 2].split(' ')[1]);
+      const sectionLetter = titleArray[titleArray.length - 1];
+      
+      if (!(courseNumber in courses)) {
+        courses[courseNumber] = {name: courseName, number: courseNumber, sections: []};
+      }
+      courses[courseNumber].sections.push({crn: crn, letter: sectionLetter});
     });
 
     newDocument.subjects.push({nameInitials: subjectInitials, nameFull: subjectFull, courses: Object.values(courses)});
 
     return Promise.resolve();
   }));
-
+  
   await firestore.collection("globalCourses").doc(currentTerm.toString()).set(newDocument, {
     merge: true
   });

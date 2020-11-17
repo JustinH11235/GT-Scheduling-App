@@ -35,7 +35,7 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
         .collection("globalCourses")
         .document("currentTerm")
         .get();
-    int termID = termIDSnapshot.data["currentTerm"];
+    int termID = termIDSnapshot.data["currentTerm"].toInt();
 
     DocumentSnapshot globalCoursesSnapshot = await firestoreInstance
         .collection("globalCourses")
