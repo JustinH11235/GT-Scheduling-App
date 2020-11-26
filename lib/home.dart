@@ -51,9 +51,7 @@ class _HomePageState extends State<HomePage> {
           print('Could not retrieve FCM token.');
         }
         await sharedPrefs.setString('fcmToken', fcMessagingToken);
-      } else {
-        print('Old fcm token.');
-      }
+      } else {}
     });
   }
 
@@ -265,7 +263,9 @@ class _HomePageState extends State<HomePage> {
       body: Center(
         child: Column(
           children: [
-            _getSelectedCoursesListView(),
+            Expanded(
+              child: _getSelectedCoursesListView(),
+            ),
           ],
         ),
       ),
