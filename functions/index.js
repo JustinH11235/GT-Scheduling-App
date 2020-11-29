@@ -66,11 +66,6 @@ const checkOpenings = async (req, res) => {
       return Promise.resolve();
     }
 
-    // TODO: return with same thing as below, just early to catch simple mistakes without throwing.
-    if (tokens === undefined || tokens.length === 0) {
-      return Promise.resolve();
-    }
-
     const {name, term, crn} = course;
 
     if (term !== currentTerm) {
@@ -171,12 +166,17 @@ const checkOpenings = async (req, res) => {
     const requestChunks = [];
     var count = 0;
     for (const user of snapshot.docs) {
+      const tokens = user.data().tokens;
+      // Skip if user does not have any device messaging tokens
+      if (tokens === undefined || tokens.length === 0) {
+        continue;
+      }
       for (const course of user.data().courses) {
         let index = (count / 50) | 0;
         if (index >= requestChunks.length) {
-          requestChunks.push([[course, user.id, user.data().tokens]]);
+          requestChunks.push([[course, user.id, tokens]]);
         } else {
-          requestChunks[index].push([course, user.id, user.data().tokens]);
+          requestChunks[index].push([course, user.id, tokens]);
         }
         ++count;
       }
