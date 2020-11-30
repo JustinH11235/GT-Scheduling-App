@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'home.dart';
-import 'email_verification.dart';
 
 class RegisterPage extends StatefulWidget {
   RegisterPage({Key key}) : super(key: key);
@@ -17,6 +15,8 @@ class _RegisterPageState extends State<RegisterPage> {
   TextEditingController emailInputController;
   TextEditingController pwdInputController;
   TextEditingController confirmPwdInputController;
+  String _incorrectMsgText = "";
+  bool _showIncorrectMsg = false;
 
   @override
   initState() {
@@ -45,6 +45,16 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  String confirmPwdValidator(String value) {
+    if (value.length < 8) {
+      return 'Password must be longer than 8 characters';
+    } else if (pwdInputController.text != confirmPwdInputController.text) {
+      return 'Passwords must match';
+    } else {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,6 +76,11 @@ class _RegisterPageState extends State<RegisterPage> {
                     keyboardType: TextInputType.emailAddress,
                     validator: emailValidator,
                     autovalidate: _autoValidate,
+                    onChanged: (String str) {
+                      setState(() {
+                        _showIncorrectMsg = false;
+                      });
+                    },
                   ),
                   TextFormField(
                     decoration: InputDecoration(
@@ -74,14 +89,32 @@ class _RegisterPageState extends State<RegisterPage> {
                     obscureText: true,
                     validator: pwdValidator,
                     autovalidate: _autoValidate,
+                    onChanged: (String str) {
+                      setState(() {
+                        _showIncorrectMsg = false;
+                      });
+                    },
                   ),
                   TextFormField(
                     decoration: InputDecoration(
                         labelText: 'Confirm Password', hintText: "********"),
                     controller: confirmPwdInputController,
                     obscureText: true,
-                    validator: pwdValidator,
+                    validator: confirmPwdValidator,
                     autovalidate: _autoValidate,
+                    onChanged: (String str) {
+                      setState(() {
+                        _showIncorrectMsg = false;
+                      });
+                    },
+                  ),
+                  Visibility(
+                    child: Text(_incorrectMsgText,
+                        style: TextStyle(color: Colors.red)),
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    visible: _showIncorrectMsg,
                   ),
                   RaisedButton(
                     child: Text("Register"),
@@ -89,63 +122,52 @@ class _RegisterPageState extends State<RegisterPage> {
                     textColor: Colors.white,
                     onPressed: () {
                       if (_registerFormKey.currentState.validate()) {
-                        if (pwdInputController.text ==
-                            confirmPwdInputController.text) {
-                          FirebaseAuth.instance
-                              .createUserWithEmailAndPassword(
-                                  email: emailInputController.text,
-                                  password: pwdInputController.text)
-                              .then((currentUser) => Firestore.instance
-                                  .collection("users")
-                                  // .document(currentUser.uid)
-                                  .document(currentUser.user.uid)
-                                  .setData({
-                                    // "uid": currentUser.uid,
-                                    "uid": currentUser.user.uid,
-                                    "email": emailInputController.text,
-                                    "courses": List(),
-                                    "tokens": List(),
-                                  })
-                                  .then((result) => {
-                                        // currentUser
-                                        currentUser.user
-                                            .sendEmailVerification(),
-                                        // Navigator.of(context).pop(),
-                                        Navigator.pushReplacementNamed(
-                                            context, "/email_verification"),
-                                        emailInputController.clear(),
-                                        pwdInputController.clear(),
-                                        confirmPwdInputController.clear()
-                                      })
-                                  .catchError((err) => {
-                                        print('Error adding to database:'),
-                                        print(err)
-                                      }))
-                              .catchError((err) => {
-                                    print('Error creating FirebaseAuth user:'),
-                                    print(err)
-                                  });
-                        } else {
-                          showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: Text("Error"),
-                                  content: Text("The passwords do not match"),
-                                  actions: <Widget>[
-                                    FlatButton(
-                                      child: Text("Close"),
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                    )
-                                  ],
-                                );
-                              });
-                        }
+                        FirebaseAuth.instance
+                            .createUserWithEmailAndPassword(
+                                email: emailInputController.text,
+                                password: pwdInputController.text)
+                            .then((currentUser) => Firestore.instance
+                                    .collection("users")
+                                    // .document(currentUser.uid)
+                                    .document(currentUser.user.uid)
+                                    .setData({
+                                  // "uid": currentUser.uid,
+                                  "uid": currentUser.user.uid,
+                                  "email": emailInputController.text,
+                                  "courses": List(),
+                                  "tokens": List(),
+                                }).then((result) {
+                                  // currentUser
+                                  currentUser.user.sendEmailVerification();
+                                  // Navigator.of(context).pop(),
+                                  Navigator.pushReplacementNamed(
+                                      context, "/email_verification");
+                                  emailInputController.clear();
+                                  pwdInputController.clear();
+                                  confirmPwdInputController.clear();
+                                }).catchError((err) {
+                                  // Error adding to database
+                                  // print(err);
+                                }))
+                            .catchError((err) {
+                          // Error creating FirebaseAuth user
+                          // print(err);
+                          setState(() {
+                            _incorrectMsgText =
+                                "Unable to create account, email may already be in use";
+                            _showIncorrectMsg = true;
+                          });
+                        });
+                      } else {
+                        // Validation failed
+                        setState(() {
+                          _incorrectMsgText = "Invalid email and/or password";
+                          _showIncorrectMsg = true;
+                        });
                       }
                     },
                   ),
+                  Divider(),
                   Text("Already have an account?"),
                   FlatButton(
                     child: Text("Login here!"),

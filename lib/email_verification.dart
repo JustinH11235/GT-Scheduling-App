@@ -22,7 +22,9 @@ class EmailVerificationPage extends StatelessWidget {
                     Navigator.pushReplacementNamed(context, "/login");
                   }
                   FocusManager.instance.primaryFocus.unfocus();
-                }).catchError((err) => print(err));
+                }).catchError((err) {
+                  // print(err);
+                });
               },
             ),
             Divider(),
@@ -34,7 +36,9 @@ class EmailVerificationPage extends StatelessWidget {
                   if (currentUser != null) {
                     await currentUser.reload();
                   }
-                }).catchError((err) => print(err));
+                }).catchError((err) {
+                  // print(err);
+                });
                 Navigator.pushNamedAndRemoveUntil(
                     context, "/login", (Route<dynamic> route) => false);
               },

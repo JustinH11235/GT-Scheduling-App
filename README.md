@@ -49,9 +49,8 @@ Future Plans:
 ## Things I'm Proud Of:
 
 ### **Course Opening Checker -**
-I wanted users to be able to track as many courses as they could realistically need, which means my cloud function, which runs every two minutes, needed to be as efficient as possible.
+I wanted users to be able to track as many courses as they could realistically need, which means my cloud function needed to be as efficient as possible since it runs every two minutes.
 
-However, after using JavaScript's sync await with promises to asyncronously process users and courses, my function began to hit rate limits. I haven't determined if this was the Georgia Tech servers or Node.js itself, but I started looking into Node.js rate limiter packages.
+However, after using JavaScript's async await with promises to asyncronously process users and courses, my function began to hit rate limits. I haven't determined if this was the Georgia Tech servers or Node.js itself, but I started looking into Node.js rate limiter packages.
 
-After searching, I decided that the added dependency wasn't worth the extra cold boot time, so I designed my own request rate limiter, which processes batches of 50 requests at a time asyncronously.
-
+After searching, I decided that the added dependency wasn't worth the extra cold boot time, so I designed my own request rate limiter, which processes batches of 50 requests at a time asyncronously and has been working flawlessly during testing even with many users and courses.

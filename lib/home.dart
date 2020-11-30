@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -23,18 +24,19 @@ class _HomePageState extends State<HomePage> {
   final firestoreInstance = Firestore.instance;
   final FirebaseMessaging fcMessaging = FirebaseMessaging();
 
+  StreamSubscription<String> tokenListener;
   final Map<String, Map<String, List<CourseInfo>>> _globalCoursesMap = Map();
   Set<CourseInfo> _selectedCourses = Set();
 
   static Future<dynamic> backgroundMessageHandler(
       Map<String, dynamic> message) async {
-    print("onbackgroundmessage: $message");
+    // print("onbackgroundmessage: $message");
     return Future<void>.value();
   }
 
   void _saveMessagingToken() {
     // Get the token for this device
-    fcMessaging.onTokenRefresh.listen((fcMessagingToken) async {
+    tokenListener = fcMessaging.onTokenRefresh.listen((fcMessagingToken) async {
       final sharedPrefs = await SharedPreferences.getInstance();
       final String curToken = sharedPrefs.getString('fcmToken');
       if (fcMessagingToken != curToken) {
@@ -46,23 +48,22 @@ class _HomePageState extends State<HomePage> {
               .updateData({
             "tokens": FieldValue.arrayUnion([fcMessagingToken])
           });
-          print('Saved token: $fcMessagingToken');
+          // print('Saved token: $fcMessagingToken');
         } else {
-          print('Could not retrieve FCM token.');
+          // print('Could not retrieve FCM token.');
         }
         await sharedPrefs.setString('fcmToken', fcMessagingToken);
-      } else {}
+      }
     });
   }
 
   @override
   void initState() {
     super.initState();
-    print('home init state happened');
 
     if (Platform.isIOS) {
       fcMessaging.onIosSettingsRegistered.listen((data) {
-        print("IOS settings registered: $data");
+        // print("IOS settings registered: $data");
         _saveMessagingToken();
       });
       fcMessaging.requestNotificationPermissions(IosNotificationSettings());
@@ -72,20 +73,7 @@ class _HomePageState extends State<HomePage> {
 
     fcMessaging.configure(
         onMessage: (Map<String, dynamic> message) async {
-          print("onMessage: $message");
-
-          // Refactor to make snackbar work?
-          // final snackbar = SnackBar(
-          //   content: Text(message['notification']['title']),
-          //   action: SnackBarAction(
-          //     label: 'Go',
-          //     onPressed: () => null,
-          //   ),
-          //   duration: Duration(seconds: 4),
-          // );
-
-          // Scaffold.of(context).showSnackBar(snackbar);
-          // _scaffoldKey.currentState.showSnackBar(snackbar);
+          // print("onMessage: $message");
 
           showDialog(
             context: context,
@@ -112,11 +100,11 @@ class _HomePageState extends State<HomePage> {
           return;
         },
         onLaunch: (Map<String, dynamic> message) async {
-          print("onLaunch: $message");
+          // print("onLaunch: $message");
           return;
         },
         onResume: (Map<String, dynamic> message) async {
-          print("onResume: $message");
+          // print("onResume: $message");
           return;
         },
         onBackgroundMessage: backgroundMessageHandler);
@@ -125,33 +113,38 @@ class _HomePageState extends State<HomePage> {
     populateSelectedCourses();
   }
 
-  void removeSelectedCourses(Iterable<CourseInfo> remCourses) async {
+  Future<void> removeSelectedCourses(Iterable<CourseInfo> remCourses) async {
     if (remCourses.isNotEmpty) {
+      await firestoreInstance
+          .collection("users")
+          .document(widget.uid)
+          .updateData({
+        "courses": FieldValue.arrayRemove(remCourses
+            .map((CourseInfo course) => course.toFirestoreObject())
+            .toList())
+      });
       setState(() {
-        firestoreInstance.collection("users").document(widget.uid).updateData({
-          "courses": FieldValue.arrayRemove(remCourses.map((CourseInfo course) {
-            return course.toFirestoreObject();
-          }).toList())
-        });
         remCourses.forEach((remCourse) {
-          _selectedCourses
-              .removeWhere((selectedCourse) => selectedCourse == remCourse);
+          _selectedCourses.remove(remCourse);
         });
       });
     }
   }
 
-  void addSelectedCourses(Iterable<CourseInfo> addCourses) async {
-    if (addCourses.isNotEmpty) {
+  Future<void> addSelectedCourses(Iterable<CourseInfo> addCourses) async {
+    Set<CourseInfo> newSelected = _selectedCourses.union(addCourses.toSet());
+    if (newSelected.length > _selectedCourses.length &&
+        newSelected.length < 16) {
+      await firestoreInstance
+          .collection("users")
+          .document(widget.uid)
+          .updateData({
+        "courses": FieldValue.arrayUnion(addCourses.map((CourseInfo course) {
+          return course.toFirestoreObject();
+        }).toList())
+      });
       setState(() {
-        firestoreInstance.collection("users").document(widget.uid).updateData({
-          "courses": FieldValue.arrayUnion(addCourses.map((CourseInfo course) {
-            return course.toFirestoreObject();
-          }).toList())
-        });
-        addCourses.forEach((addCourse) {
-          _selectedCourses.add(addCourse);
-        });
+        _selectedCourses = newSelected;
       });
     }
   }
@@ -205,8 +198,8 @@ class _HomePageState extends State<HomePage> {
                 selected: Set.from(_selectedCourses))));
 
     // After user has updated classes on add_courses, get updated info here:
-    removeSelectedCourses(updatedSelected[0]);
-    addSelectedCourses(updatedSelected[1]);
+    await removeSelectedCourses(updatedSelected[0]);
+    await addSelectedCourses(updatedSelected[1]);
   }
 
   Widget _getSelectedCoursesListView() {
@@ -249,13 +242,16 @@ class _HomePageState extends State<HomePage> {
           FlatButton(
             child: Text("Log Out"),
             textColor: Colors.black,
-            onPressed: () {
-              fcMessaging.deleteInstanceID();
+            onPressed: () async {
+              await tokenListener.cancel();
+              await fcMessaging.deleteInstanceID();
               FirebaseAuth.instance
                   .signOut()
                   .then((result) =>
                       Navigator.pushReplacementNamed(context, "/login"))
-                  .catchError((err) => print(err));
+                  .catchError((err) {
+                // print(err);
+              });
             },
           )
         ],

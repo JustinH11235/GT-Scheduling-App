@@ -15,6 +15,12 @@ admin.initializeApp({
 const firestore = admin.firestore();
 const fcMessaging = admin.messaging();
 
+// admin.auth().updateUser(____, {
+//   emailVerified: true,
+// }).then((userRecord) => {
+//   console.log('Successfully updated user', userRecord.toJSON());
+// });
+
 const agent = new https.Agent({
   host: 'oscar.gatech.edu',
   path: '/',

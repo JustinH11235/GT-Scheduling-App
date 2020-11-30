@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'course_info.dart';
 
 class AddCoursesPage extends StatefulWidget {
@@ -26,7 +24,32 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
   @override
   void initState() {
     super.initState();
-    print('add_courses init state happened');
+  }
+
+  void showTooManyCoursesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Container(
+          height: 40.0,
+          child: ListTile(
+            title: Text('Sorry!'),
+            subtitle: Padding(
+              padding: EdgeInsets.only(top: 5.0),
+              child:
+                  Text('You are unable to track more than 10 courses at once'),
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          FlatButton(
+            color: Theme.of(context).accentColor,
+            child: Text('Ok', style: TextStyle(color: Colors.black)),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildAllCoursesRow(CourseInfo course) {
@@ -47,10 +70,14 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
             widget.removed.add(course);
             widget.added.remove(course);
           } else {
-            widget.selected.add(course);
+            if (widget.selected.length + 1 < 16) {
+              widget.selected.add(course);
 
-            widget.added.add(course);
-            widget.removed.remove(course);
+              widget.added.add(course);
+              widget.removed.remove(course);
+            } else {
+              showTooManyCoursesDialog();
+            }
           }
         });
       },
@@ -157,7 +184,7 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
         FloatingActionButton(
           onPressed: () =>
               Navigator.pop(context, [<CourseInfo>{}, <CourseInfo>{}]),
-          tooltip: 'Back to Home',
+          tooltip: 'Cancel',
           child: Icon(Icons.cancel),
           heroTag: null,
         ),
@@ -165,9 +192,11 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
           height: 10,
         ),
         FloatingActionButton(
-          onPressed: () => Navigator.pop(context,
-              [widget.removed, widget.added]), // return updated selected
-          tooltip: 'Save and Back to Home',
+          onPressed: () {
+            // return updated selected
+            Navigator.pop(context, [widget.removed, widget.added]);
+          },
+          tooltip: 'Save',
           child: Icon(Icons.save),
           heroTag: null,
         ),

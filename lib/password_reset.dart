@@ -21,58 +21,87 @@ class PasswordResetPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(title: Text('Reset Password')),
-        body: Center(
-            child: Column(
-          children: [
-            Text('Forgot your password?'),
-            Text(
-                'Please input your email to receive a password reset link sent to your email.'),
-            Container(
-                padding: const EdgeInsets.all(20.0),
-                child: SingleChildScrollView(
-                    child: Form(
-                        key: _pwdResetFormKey,
-                        child: Column(children: [
-                          TextFormField(
-                            decoration: InputDecoration(
-                                labelText: 'Email',
-                                hintText: "george.p.burdell@gmail.com"),
-                            controller: emailInputController,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: emailValidator,
-                            autovalidate: true,
+        body: Container(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
+                child: Column(
+              children: [
+                Text('Forgot your password?'),
+                Text('Input your email to receive a password reset link.'),
+                Form(
+                    key: _pwdResetFormKey,
+                    child: Column(children: [
+                      TextFormField(
+                        decoration: InputDecoration(
+                            labelText: 'Email',
+                            hintText: "george.p.burdell@gmail.com"),
+                        controller: emailInputController,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: emailValidator,
+                        autovalidate: true,
+                      ),
+                      FlatButton(
+                          child: Text(
+                            "Send Password Reset",
                           ),
-                          FlatButton(
-                              child: Text(
-                                "Send Password Reset",
-                              ),
-                              onPressed: () async {
-                                if (_pwdResetFormKey.currentState.validate()) {
-                                  await FirebaseAuth.instance
-                                      .sendPasswordResetEmail(
-                                          email: emailInputController.text);
-                                  FocusManager.instance.primaryFocus.unfocus();
-                                } else {
-                                  // Invalid email format...
-                                }
-                              })
-                        ])))),
-            Divider(),
-            Text("Once you're done Login again below."),
-            FlatButton(
-              child: Text("Login"),
-              onPressed: () {
-                // FirebaseAuth.instance.currentUser().then((currentUser) async {
-                //   if (currentUser != null) {
-                //     await currentUser.reload();
-                //   }
-                // }).catchError((err) => print(err));
-                Navigator.of(context).pop();
-                // Navigator.pushNamedAndRemoveUntil(
-                //     context, "/login", (Route<dynamic> route) => false);
-              },
-            ),
-          ],
-        )));
+                          onPressed: () async {
+                            if (_pwdResetFormKey.currentState.validate()) {
+                              try {
+                                await FirebaseAuth.instance
+                                    .sendPasswordResetEmail(
+                                        email: emailInputController.text);
+                                FocusManager.instance.primaryFocus.unfocus();
+                              } catch (err) {
+                                // No user found with this email
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text("Error"),
+                                        content: Text(
+                                            "No user exists for this email address"),
+                                        actions: <Widget>[
+                                          FlatButton(
+                                            child: Text("Close"),
+                                            onPressed: () {
+                                              Navigator.of(context).pop();
+                                            },
+                                          )
+                                        ],
+                                      );
+                                    });
+                              }
+                            } else {
+                              // Invalid email format... do nothing.
+                              showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: Text("Error"),
+                                      content:
+                                          Text("Invalid email and/or password"),
+                                      actions: <Widget>[
+                                        FlatButton(
+                                          child: Text("Close"),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                        )
+                                      ],
+                                    );
+                                  });
+                            }
+                          })
+                    ])),
+                Divider(),
+                Text("Once you're done, Login again below."),
+                FlatButton(
+                  child: Text("Login"),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            ))));
   }
 }

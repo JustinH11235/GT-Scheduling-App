@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home.dart';
-import 'package:http/http.dart';
 
 class LoginPage extends StatefulWidget {
   LoginPage({Key key}) : super(key: key);
@@ -14,6 +12,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final GlobalKey<FormState> _loginFormKey = GlobalKey<FormState>();
   final _autoValidate = true;
+  String _incorrectMsgText = "";
   bool _showIncorrectMsg = false;
   TextEditingController emailInputController;
   TextEditingController pwdInputController;
@@ -22,20 +21,6 @@ class _LoginPageState extends State<LoginPage> {
   initState() {
     emailInputController = new TextEditingController();
     pwdInputController = new TextEditingController();
-
-    // TESTING
-    // _makeGetRequest() async {
-    //   String url =
-    //       'http://10.0.2.2:5001/gt-scheduling-app/us-central1/helloWorld';
-    //   Response response = await get(url);
-    //   print('RESPONSE: ! ' + response.body);
-    //   // int statusCode = response.statusCode;
-    //   // Map<String, String> headers = response.headers;
-    //   // String contentType = headers['content-type'];
-    //   // String json = response.body;
-    // }
-
-    // _makeGetRequest();
 
     super.initState();
   }
@@ -80,6 +65,11 @@ class _LoginPageState extends State<LoginPage> {
                     keyboardType: TextInputType.emailAddress,
                     validator: emailValidator,
                     autovalidate: _autoValidate,
+                    onChanged: (String str) {
+                      setState(() {
+                        _showIncorrectMsg = false;
+                      });
+                    },
                   ),
                   TextFormField(
                     decoration: InputDecoration(
@@ -88,9 +78,14 @@ class _LoginPageState extends State<LoginPage> {
                     obscureText: true,
                     validator: pwdValidator,
                     autovalidate: _autoValidate,
+                    onChanged: (String str) {
+                      setState(() {
+                        _showIncorrectMsg = false;
+                      });
+                    },
                   ),
                   Visibility(
-                    child: Text("Invalid email and/or password",
+                    child: Text(_incorrectMsgText,
                         style: TextStyle(color: Colors.red)),
                     maintainSize: true,
                     maintainAnimation: true,
@@ -108,12 +103,6 @@ class _LoginPageState extends State<LoginPage> {
                                 email: emailInputController.text,
                                 password: pwdInputController.text)
                             .then((currentUser) => {
-                                  //Firestore.instance
-                                  // .collection("users")
-                                  // .document(currentUser.user.uid)
-                                  // .get()
-                                  // .then((DocumentSnapshot result) =>
-                                  // if (currentUser.isEmailVerified)
                                   if (currentUser.user.isEmailVerified)
                                     {
                                       Navigator.pushReplacement(
@@ -124,7 +113,7 @@ class _LoginPageState extends State<LoginPage> {
                                                     uid: currentUser.user.uid,
                                                   ))),
                                       // print('New uid: ' + currentUser.uid),
-                                      print('New uid: ' + currentUser.user.uid),
+                                      // print('New uid: ' + currentUser.user.uid),
                                     }
                                   else
                                     {
@@ -133,17 +122,19 @@ class _LoginPageState extends State<LoginPage> {
                                           context, "/email_verification"),
                                     }
                                 })
-                            // .catchError((err) => print(err)))
-                            .catchError((err) => {
-                                  setState(() {
-                                    _showIncorrectMsg = true;
-                                  }),
-                                  print('Error logging in:'),
-                                  print(err)
-                                });
+                            .catchError((err) {
+                          // Error logging in
+                          setState(() {
+                            _incorrectMsgText =
+                                "Incorrect email and/or password";
+                            _showIncorrectMsg = true;
+                          });
+                          // print(err);
+                        });
                       } else {
                         // Fields not valid
                         setState(() {
+                          _incorrectMsgText = "Invalid email and/or password";
                           _showIncorrectMsg = true;
                         });
                       }
