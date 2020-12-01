@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.gt_scheduling_app">
+    package="com.justinhinckley.gt_scheduling_app">
 
     <uses-permission android:name="android.permission.INTERNET"/>
 

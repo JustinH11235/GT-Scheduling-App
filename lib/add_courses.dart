@@ -37,7 +37,7 @@ class _AddCoursesPageState extends State<AddCoursesPage> {
             subtitle: Padding(
               padding: EdgeInsets.only(top: 5.0),
               child:
-                  Text('You are unable to track more than 10 courses at once'),
+                  Text('You are unable to track more than 15 courses at once'),
             ),
           ),
         ),

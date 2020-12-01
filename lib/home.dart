@@ -245,6 +245,14 @@ class _HomePageState extends State<HomePage> {
             onPressed: () async {
               await tokenListener.cancel();
               await fcMessaging.deleteInstanceID();
+              final sharedPrefs = await SharedPreferences.getInstance();
+              await firestoreInstance
+                  .collection("users")
+                  .document(widget.uid)
+                  .updateData({
+                "tokens":
+                    FieldValue.arrayRemove([sharedPrefs.getString('fcmToken')])
+              });
               FirebaseAuth.instance
                   .signOut()
                   .then((result) =>

@@ -15,12 +15,6 @@ admin.initializeApp({
 const firestore = admin.firestore();
 const fcMessaging = admin.messaging();
 
-// admin.auth().updateUser(____, {
-//   emailVerified: true,
-// }).then((userRecord) => {
-//   console.log('Successfully updated user', userRecord.toJSON());
-// });
-
 const agent = new https.Agent({
   host: 'oscar.gatech.edu',
   path: '/',
@@ -41,6 +35,7 @@ const checkOpenings = async (req, res) => {
   }
 
   const previousResult = {};
+  const badTokens = [];
 
   async function getSeats(term_in, crn_in) {
     const url = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_disp_detail_sched?term_in=${term_in}&crn_in=${crn_in}`;
@@ -110,8 +105,7 @@ const checkOpenings = async (req, res) => {
         }
       };
 
-      // Change to sendMulticast? Requires Message objects instead of strings but may be more efficient.
-      // TODO: End course loop if fails here, return a bad promise and make courses check for that.
+      // Maybe add a bad users list and stop sending to them after one failed sendToDevice?
       try {
         var response = await fcMessaging.sendToDevice(tokens, payload);
       } catch (e) {
@@ -122,14 +116,16 @@ const checkOpenings = async (req, res) => {
       return Promise.all(response.results.map(async (result, index) => {
         const error = result.error;
         if (error) {
-          console.log('Failure sending cloud message to', tokens[index], error);
           // Cleanup the tokens who are not registered anymore.
-          if (error.code === 'messaging/invalid-registration-token' ||
-              error.code === 'messaging/registration-token-not-registered') {
-              firestore.collection("users").doc(id).update({
-                'tokens': admin.firestore.FieldValue.arrayRemove(tokens[index])
-              });
+          if ((error.code === 'messaging/invalid-registration-token' ||
+              error.code === 'messaging/registration-token-not-registered') &&
+              badTokens.indexOf(tokens[index]) === -1) {
+                badTokens.push(tokens[index]);
+                firestore.collection("users").doc(id).update({
+                  'tokens': admin.firestore.FieldValue.arrayRemove(tokens[index])
+                });
           }
+          console.log('Failure sending cloud message to: ', id, tokens[index], error);
         }
         return Promise.resolve();
       }));

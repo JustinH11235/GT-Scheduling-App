@@ -1,4 +1,4 @@
-package com.example.gt_scheduling_app
+package com.justinhinckley.gt_scheduling_app
 
 import io.flutter.plugin.common.PluginRegistry
 import io.flutter.plugins.firebasemessaging.FirebaseMessagingPlugin
