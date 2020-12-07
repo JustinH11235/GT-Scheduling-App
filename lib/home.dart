@@ -79,7 +79,8 @@ class _HomePageState extends State<HomePage> {
             context: context,
             builder: (context) => AlertDialog(
               content: Container(
-                height: 50.0,
+                height: 40.0,
+                width: 280.0,
                 child: ListTile(
                   title: Text(message['notification']['title']),
                   subtitle: Padding(
