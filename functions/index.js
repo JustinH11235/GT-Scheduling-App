@@ -39,7 +39,7 @@ const checkOpenings = async (req, res) => {
 
   // Get the current term from Firestore
   try {
-  var currentTerm = (await firestore.collection("globalCourses").doc("currentTerm").get()).data().currentTerm;
+    var currentTerm = (await firestore.collection("globalCourses").doc("currentTerm").get()).data().currentTerm;
   } catch (e) {
     console.error(`Error getting current term: ${e}`);
     return res.status(404).send('Failure getting current term.');
@@ -98,7 +98,7 @@ const checkOpenings = async (req, res) => {
       return Promise.resolve();
     }
 
-    const {name, term, crn} = course;
+    const { name, term, crn } = course;
 
     if (term !== currentTerm) {
       firestore.collection("users").doc(id).update({
@@ -148,12 +148,12 @@ const checkOpenings = async (req, res) => {
         if (error) {
           // Cleanup the tokens who are not registered anymore.
           if ((error.code === 'messaging/invalid-registration-token' ||
-              error.code === 'messaging/registration-token-not-registered') &&
-              !badTokens.has(tokens[index])) {
-                badTokens.add(tokens[index]);
-                firestore.collection("users").doc(id).update({
-                  'tokens': admin.firestore.FieldValue.arrayRemove(tokens[index])
-                });
+            error.code === 'messaging/registration-token-not-registered') &&
+            !badTokens.has(tokens[index])) {
+            badTokens.add(tokens[index]);
+            firestore.collection("users").doc(id).update({
+              'tokens': admin.firestore.FieldValue.arrayRemove(tokens[index])
+            });
           }
           console.log('Failure sending cloud message to:', id, 'with tokenID:', tokens[index], error);
         }
@@ -237,7 +237,7 @@ const checkOpenings = async (req, res) => {
     }
 
     await processChunks(requestChunks);
-    
+
     return res.status(200).send('Success: checked openings!');
   } catch (e) {
     console.error(`Global ERROR: ${e}`);
@@ -288,39 +288,45 @@ const updateGlobalCourses = async (req, res) => {
       console.error(`Erorr getting subjects: ${e}`);
       return res.status(404).send('Failure getting subjects.');
     }
-    
+
     const $subjects = cheerio.load(subjectsResult.data);
 
     const termName = $subjects('table.plaintable div.staticheaders').children()[0].prev.data.trim();
-    const newDocument = {name: termName, subjects: []};
+    const newDocument = { name: termName, subjects: [] };
 
     try {
       // For each subject, get every section and add its data to newDocument
       await Promise.all($subjects('table.dataentrytable select option').get().map(async elem => {
-        const subjectInitials = elem.attribs.value;
-        const subjectFull = elem.firstChild.data;
-        const sectionsUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
-        const sectionsResult = await axios.get(sectionsUrl, { httpsAgent: agent });
-        const $sections = cheerio.load(sectionsResult.data);
+        var sectionsUrl = null;
+        try {
+          const subjectInitials = elem.attribs.value;
+          const subjectFull = elem.firstChild.data;
+          sectionsUrl = `https://oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec?term_in=${currentTerm}&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_insm=dummy&sel_camp=dummy&sel_levl=dummy&sel_sess=dummy&sel_instr=dummy&sel_ptrm=dummy&sel_attr=dummy&sel_subj=${subjectInitials}&sel_crse=&sel_title=&sel_schd=%25&sel_from_cred=&sel_to_cred=&sel_camp=%25&sel_ptrm=%25&sel_instr=%25&sel_attr=%25&begin_hh=0&begin_mi=0&begin_ap=a&end_hh=0&end_mi=0&end_ap=a`;
+          const sectionsResult = await axios.get(sectionsUrl, { httpsAgent: agent });
+          const $sections = cheerio.load(sectionsResult.data);
 
-        const courses = {};
-        // Iterate over every section and update courses object with its data
-        $sections('table.datadisplaytable th.ddtitle').each((ind, elem) => {
-          const titleArray = elem.firstChild.firstChild.data.split(' - ');
-          
-          const courseName = titleArray.slice(0, -3).join(' - ');
-          const crn = parseInt(titleArray[titleArray.length - 3]);
-          const courseNumber = parseInt(titleArray[titleArray.length - 2].split(' ')[1]);
-          const sectionLetter = titleArray[titleArray.length - 1];
-          
-          if (!(courseNumber in courses)) {
-            courses[courseNumber] = {name: courseName, number: courseNumber, sections: []};
-          }
-          courses[courseNumber].sections.push({crn: crn, letter: sectionLetter});
-        });
+          const courses = {};
+          // Iterate over every section and update courses object with its data
+          $sections('table.datadisplaytable th.ddtitle').each((ind, elem) => {
+            const titleArray = elem.firstChild.firstChild.data.split(' - ');
 
-        newDocument.subjects.push({nameInitials: subjectInitials, nameFull: subjectFull, courses: Object.values(courses)});
-        return Promise.resolve();
+            const courseName = titleArray.slice(0, -3).join(' - ');
+            const crn = parseInt(titleArray[titleArray.length - 3]);
+            const courseNumber = parseInt(titleArray[titleArray.length - 2].split(' ')[1]);
+            const sectionLetter = titleArray[titleArray.length - 1];
+
+            if (!(courseNumber in courses)) {
+              courses[courseNumber] = { name: courseName, number: courseNumber, sections: [] };
+            }
+            courses[courseNumber].sections.push({ crn: crn, letter: sectionLetter });
+          });
+
+          newDocument.subjects.push({ nameInitials: subjectInitials, nameFull: subjectFull, courses: Object.values(courses) });
+          return Promise.resolve();
+        } catch (e) {
+          console.error(`Error getting section ${sectionsUrl}: ${e}`);
+          return Promise.resolve(); // ignore error, just log
+        }
       }));
     } catch (e) {
       console.error(`Error getting sections: ${e}`);
@@ -333,7 +339,7 @@ const updateGlobalCourses = async (req, res) => {
     });
 
     // Updates Firestore current term to be new current term
-    await firestore.collection("globalCourses").doc("currentTerm").update({'currentTerm': currentTerm});
+    await firestore.collection("globalCourses").doc("currentTerm").update({ 'currentTerm': currentTerm });
 
     return res.status(200).send('Success: updated global courses!');
   } catch (e) {
